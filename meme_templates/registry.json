@@ -1,0 +1,276 @@
+{
+  "templates": [
+    {
+      "name": "Drake Preference",
+      "filename": "drake_preference.png",
+      "format": "drake",
+      "emotions": ["preference", "smugness", "rejection", "excitement"],
+      "tags": ["comparison", "preference", "choice", "rejection", "approval"],
+      "humor_convention": "Top panel: thing being rejected/dismissed. Bottom panel: thing being preferred/approved. The humor comes from the contrast between what's rejected and what's chosen.",
+      "text_regions": [
+        {"label": "rejected", "x": 400, "y": 20, "width": 380, "height": 280, "font_size": 32, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"},
+        {"label": "preferred", "x": 400, "y": 320, "width": 380, "height": 280, "font_size": 32, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"}
+      ],
+      "typical_uses": ["preferring worse option", "choosing shiny new thing over stable option", "rejecting best practices"],
+      "width": 800,
+      "height": 600,
+      "year_origin": 2015,
+      "is_classic": true
+    },
+    {
+      "name": "Distracted Boyfriend",
+      "filename": "distracted_boyfriend.png",
+      "format": "three_label",
+      "emotions": ["temptation", "desire", "neglect", "jealousy"],
+      "tags": ["temptation", "comparison", "abandoning", "shiny-new-thing", "cheating", "distraction"],
+      "humor_convention": "Three figures: the boyfriend (person being distracted), the girlfriend (stable/reliable/current thing being neglected), and the other woman (new shiny temptation). The humor comes from labeling each figure with something that maps to this dynamic.",
+      "text_regions": [
+        {"label": "boyfriend", "x": 300, "y": 350, "width": 200, "height": 100, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "girlfriend", "x": 520, "y": 250, "width": 200, "height": 100, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "other_woman", "x": 50, "y": 200, "width": 200, "height": 100, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["devs abandoning stable tools for new frameworks", "switching languages", "ignoring documentation for Stack Overflow"],
+      "width": 800,
+      "height": 550,
+      "year_origin": 2017,
+      "is_classic": true
+    },
+    {
+      "name": "This Is Fine",
+      "filename": "this_is_fine.png",
+      "format": "single_caption",
+      "emotions": ["resignation", "denial", "horror", "calm-in-chaos"],
+      "tags": ["disaster", "denial", "everything-is-broken", "production", "fire", "calm"],
+      "humor_convention": "Dog sitting in a burning room saying 'This is fine.' Used when someone is in denial about a catastrophic situation. The single caption can replace or augment the dog's speech.",
+      "text_regions": [
+        {"label": "caption", "x": 300, "y": 20, "width": 450, "height": 120, "font_size": 28, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["production is down", "ignoring technical debt", "deploying on Friday", "legacy code maintenance"],
+      "width": 800,
+      "height": 450,
+      "year_origin": 2013,
+      "is_classic": true
+    },
+    {
+      "name": "Surprised Pikachu",
+      "filename": "surprised_pikachu.png",
+      "format": "single_caption",
+      "emotions": ["disbelief", "shock", "surprise", "irony"],
+      "tags": ["obvious-outcome", "surprised", "predictable", "irony", "shocked"],
+      "humor_convention": "Used when someone is shocked by a completely predictable outcome. The caption describes the obvious thing that happened. The humor is in the feigned surprise at something everyone saw coming.",
+      "text_regions": [
+        {"label": "caption", "x": 50, "y": 20, "width": 700, "height": 100, "font_size": 30, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["code doesn't work after not testing", "server crashes after ignoring warnings", "framework has breaking changes"],
+      "width": 800,
+      "height": 500,
+      "year_origin": 2018,
+      "is_classic": true
+    },
+    {
+      "name": "Two Buttons",
+      "filename": "two_buttons.png",
+      "format": "two_panel",
+      "emotions": ["anxiety", "indecision", "stress", "confusion"],
+      "tags": ["decision", "dilemma", "choice", "anxiety", "sweating"],
+      "humor_convention": "Person sweating while trying to choose between two buttons. Each button is labeled with a conflicting option. The humor comes from both options being equally bad or the choice being absurdly difficult.",
+      "text_regions": [
+        {"label": "button_1", "x": 100, "y": 50, "width": 250, "height": 100, "font_size": 22, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"},
+        {"label": "button_2", "x": 400, "y": 50, "width": 250, "height": 100, "font_size": 22, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"}
+      ],
+      "typical_uses": ["choosing between two bad options", "impossible tradeoffs", "analysis paralysis"],
+      "width": 700,
+      "height": 600,
+      "year_origin": 2014,
+      "is_classic": true
+    },
+    {
+      "name": "Expanding Brain",
+      "filename": "expanding_brain.png",
+      "format": "expanding_brain",
+      "emotions": ["smugness", "escalation", "absurdity", "superiority"],
+      "tags": ["escalation", "levels", "intelligence", "galaxy-brain", "ascending", "irony"],
+      "humor_convention": "Multiple panels showing progressively 'enlightened' brain images, each paired with a concept. Goes from normal to galaxy brain. The humor comes from the 'smartest' option actually being the dumbest or most absurd.",
+      "text_regions": [
+        {"label": "level_1", "x": 20, "y": 20, "width": 380, "height": 120, "font_size": 22, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"},
+        {"label": "level_2", "x": 20, "y": 170, "width": 380, "height": 120, "font_size": 22, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"},
+        {"label": "level_3", "x": 20, "y": 320, "width": 380, "height": 120, "font_size": 22, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"},
+        {"label": "level_4", "x": 20, "y": 470, "width": 380, "height": 120, "font_size": 22, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"}
+      ],
+      "typical_uses": ["increasingly unhinged solutions", "over-engineering progression", "absurd optimization strategies"],
+      "width": 800,
+      "height": 620,
+      "year_origin": 2017,
+      "is_classic": true
+    },
+    {
+      "name": "Is This A Pigeon",
+      "filename": "is_this_a_pigeon.png",
+      "format": "three_label",
+      "emotions": ["confusion", "misidentification", "ignorance", "cluelessness"],
+      "tags": ["misunderstanding", "confusion", "wrong-label", "ignorance", "naming"],
+      "humor_convention": "Person pointing at a butterfly and asking 'Is this a [X]?' Three labels: the person (who is confused), the butterfly (the actual thing), and the caption (the wrong identification). Humor from confidently misidentifying something.",
+      "text_regions": [
+        {"label": "person", "x": 50, "y": 400, "width": 250, "height": 80, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "butterfly", "x": 450, "y": 50, "width": 250, "height": 80, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "caption", "x": 100, "y": 480, "width": 600, "height": 80, "font_size": 28, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["misusing a technology", "calling everything AI", "confusing similar tools"],
+      "width": 800,
+      "height": 580,
+      "year_origin": 2018,
+      "is_classic": true
+    },
+    {
+      "name": "Change My Mind",
+      "filename": "change_my_mind.png",
+      "format": "single_caption",
+      "emotions": ["smugness", "confidence", "provocation", "challenge"],
+      "tags": ["hot-take", "opinion", "debate", "controversial", "challenge"],
+      "humor_convention": "Person sitting at a table with a sign that reads a hot take or controversial opinion, followed by 'change my mind.' Used for strong opinions presented as facts.",
+      "text_regions": [
+        {"label": "caption", "x": 250, "y": 380, "width": 450, "height": 120, "font_size": 26, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"}
+      ],
+      "typical_uses": ["controversial tech opinions", "language war takes", "framework debates"],
+      "width": 800,
+      "height": 530,
+      "year_origin": 2018,
+      "is_classic": true
+    },
+    {
+      "name": "Anakin Padme",
+      "filename": "anakin_padme.png",
+      "format": "multi_panel",
+      "emotions": ["dread", "realization", "horror", "false-hope"],
+      "tags": ["realization", "twist", "ominous", "expectation-vs-reality", "dread"],
+      "humor_convention": "Four panels: Anakin makes a statement. Padme responds positively assuming a good outcome. Anakin stares silently. Padme's expression changes to concern. The humor comes from the gap between the optimistic assumption and the ominous reality.",
+      "text_regions": [
+        {"label": "statement", "x": 20, "y": 20, "width": 380, "height": 250, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "hopeful_response", "x": 420, "y": 20, "width": 360, "height": 250, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "worried_response", "x": 420, "y": 300, "width": 360, "height": 250, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["feature that sounds good but has a catch", "migration that went wrong", "promises from management"],
+      "width": 800,
+      "height": 570,
+      "year_origin": 2021,
+      "is_classic": false
+    },
+    {
+      "name": "They're The Same Picture",
+      "filename": "same_picture.png",
+      "format": "three_label",
+      "emotions": ["frustration", "confusion", "smugness", "irony"],
+      "tags": ["comparison", "identical", "same-thing", "corporate", "indistinguishable"],
+      "humor_convention": "Corporate asks person to find the difference between two pictures. Person says they're the same picture. Two panels labeled with things that are supposedly different but actually identical.",
+      "text_regions": [
+        {"label": "picture_1", "x": 50, "y": 30, "width": 300, "height": 200, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "picture_2", "x": 450, "y": 30, "width": 300, "height": 200, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "bottom_text", "x": 100, "y": 400, "width": 600, "height": 80, "font_size": 26, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["two frameworks that do the same thing", "rebranded products", "indistinguishable technologies"],
+      "width": 800,
+      "height": 500,
+      "year_origin": 2018,
+      "is_classic": true
+    },
+    {
+      "name": "Disaster Girl",
+      "filename": "disaster_girl.png",
+      "format": "single_caption",
+      "emotions": ["smugness", "chaos", "satisfaction", "mischief"],
+      "tags": ["chaos", "destruction", "mischief", "satisfaction", "evil"],
+      "humor_convention": "Girl smiling in front of a house fire. Caption describes the thing she 'caused' or is happy about destroying. Used for taking satisfaction in destruction or chaos.",
+      "text_regions": [
+        {"label": "caption", "x": 50, "y": 20, "width": 700, "height": 100, "font_size": 30, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["deleting production database", "force pushing to main", "rm -rf"],
+      "width": 800,
+      "height": 500,
+      "year_origin": 2007,
+      "is_classic": true
+    },
+    {
+      "name": "First Time",
+      "filename": "first_time.png",
+      "format": "single_caption",
+      "emotions": ["resignation", "experience", "cynicism", "been-there"],
+      "tags": ["experience", "veteran", "resignation", "first-time", "seasoned"],
+      "humor_convention": "Character about to be hanged asks the newcomer next to him 'First time?' Used when someone is complaining about something that veterans have long accepted as normal.",
+      "text_regions": [
+        {"label": "caption", "x": 50, "y": 20, "width": 700, "height": 100, "font_size": 30, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["new dev encountering common pain point", "first time dealing with legacy code", "debugging CSS"],
+      "width": 800,
+      "height": 500,
+      "year_origin": 2018,
+      "is_classic": true
+    },
+    {
+      "name": "Stonks",
+      "filename": "stonks.png",
+      "format": "single_caption",
+      "emotions": ["smugness", "false-confidence", "irony", "triumph"],
+      "tags": ["success", "fake-success", "business", "ironic-win", "stonks"],
+      "humor_convention": "Low-poly businessman in front of a rising stock chart. Used ironically when someone does something dumb but frames it as a win. The caption describes the 'genius' move.",
+      "text_regions": [
+        {"label": "caption", "x": 50, "y": 350, "width": 700, "height": 100, "font_size": 30, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["shipping bugs as features", "deleting tests to improve coverage", "ironic optimization"],
+      "width": 800,
+      "height": 480,
+      "year_origin": 2017,
+      "is_classic": true
+    },
+    {
+      "name": "Exit Sign Swerve",
+      "filename": "exit_sign_swerve.png",
+      "format": "three_label",
+      "emotions": ["rejection", "bad-decision", "preference", "recklessness"],
+      "tags": ["bad-choice", "exit", "swerve", "ignoring-best-practice", "reckless"],
+      "humor_convention": "Car swerving away from a highway exit at the last moment. The exit is labeled with the sensible option, the highway continuing is labeled with the bad choice, and the car is labeled with who is making the bad decision.",
+      "text_regions": [
+        {"label": "exit", "x": 400, "y": 50, "width": 300, "height": 100, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "highway", "x": 50, "y": 50, "width": 300, "height": 100, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "car", "x": 250, "y": 350, "width": 300, "height": 100, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["ignoring documentation", "avoiding tests", "skipping code review"],
+      "width": 800,
+      "height": 500,
+      "year_origin": 2017,
+      "is_classic": true
+    },
+    {
+      "name": "One Does Not Simply",
+      "filename": "one_does_not_simply.png",
+      "format": "single_caption",
+      "emotions": ["warning", "frustration", "gravity", "seriousness"],
+      "tags": ["difficulty", "warning", "impossible", "underestimation", "challenge"],
+      "humor_convention": "Boromir from Lord of the Rings saying 'One does not simply...' followed by something that sounds simple but is actually very difficult. Used for tasks that are deceptively complex.",
+      "text_regions": [
+        {"label": "caption", "x": 50, "y": 400, "width": 700, "height": 120, "font_size": 30, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["centering a div in CSS", "updating npm packages", "merging to main on Friday"],
+      "width": 800,
+      "height": 540,
+      "year_origin": 2012,
+      "is_classic": true
+    },
+    {
+      "name": "Always Has Been",
+      "filename": "always_has_been.png",
+      "format": "two_panel",
+      "emotions": ["realization", "betrayal", "revelation", "disbelief"],
+      "tags": ["revelation", "always", "realization", "astronaut", "conspiracy"],
+      "humor_convention": "Two astronauts looking at Earth. First astronaut realizes something shocking ('Wait, it's all X?'). Second astronaut with gun: 'Always has been.' Used for revelations that something has always been a certain way.",
+      "text_regions": [
+        {"label": "realization", "x": 20, "y": 20, "width": 450, "height": 100, "font_size": 26, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "response", "x": 400, "y": 400, "width": 380, "height": 100, "font_size": 26, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+      ],
+      "typical_uses": ["everything is JavaScript", "all code is technical debt", "every app is a CRUD app"],
+      "width": 800,
+      "height": 530,
+      "year_origin": 2020,
+      "is_classic": false
+    }
+  ]
+}

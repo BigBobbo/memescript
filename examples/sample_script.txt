@@ -1,0 +1,15 @@
+00:00 - Welcome to another episode of code roast, where we look at real production code and question humanity's life choices.
+00:05 - Today we're talking about JavaScript frameworks. Yes, again.
+00:10 - So apparently there's a new JavaScript framework called TurboStack that promises to solve every problem React ever had.
+00:18 - The creator said, and I quote, "it's like React but without the bad parts." That's literally what they all say.
+00:25 - TurboStack uses a revolutionary rendering engine that re-renders your entire DOM on every keystroke. They call it "aggressive hydration."
+00:33 - The bundle size? Only 450 kilobytes. For a hello world app. But don't worry, they said tree-shaking will fix that in version 2.
+00:42 - Now let's look at the dependency tree. It has 847 dependencies. One of them is called "is-even" and it depends on "is-odd."
+00:50 - The documentation is a single README file that just says "it works like React, you'll figure it out."
+00:55 - But here's the real kicker — it's actually gaining traction. It has 15,000 GitHub stars after one week.
+01:02 - Meanwhile, the team that built it just announced they're rewriting the whole thing in Rust.
+01:08 - The migration guide is seven pages long and step one is "delete your entire project and start over."
+01:15 - And developers are actually excited about this. They're calling it the future of web development.
+01:22 - So naturally, every startup in Silicon Valley has already adopted it for their production apps.
+01:28 - Three of those startups have already pivoted. Two went bankrupt. One became an AI company.
+01:35 - But the real question is: will you rewrite your app in TurboStack? The answer is probably yes, because we never learn.
