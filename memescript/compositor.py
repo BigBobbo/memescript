@@ -219,42 +219,34 @@ def composite_all(
 
 
 def _make_generic_template(suggestion: MemeSuggestion) -> MemeTemplate:
-    """Create a generic two-region template for suggestions without a DB match."""
+    """Create a generic template with evenly distributed regions for each caption."""
     from .models import MemeFormat
 
     captions = suggestion.captions
     keys = list(captions.keys())
 
-    if len(keys) >= 2:
-        regions = [
-            TextRegion(
-                label=keys[0], x=20, y=20, width=760, height=260,
-                font_size=36, color="white", stroke_color="black", stroke_width=3,
-            ),
-            TextRegion(
-                label=keys[1], x=20, y=320, width=760, height=260,
-                font_size=36, color="white", stroke_color="black", stroke_width=3,
-            ),
-        ]
-    elif len(keys) == 1:
-        regions = [
-            TextRegion(
-                label=keys[0], x=20, y=400, width=760, height=180,
-                font_size=36, color="white", stroke_color="black", stroke_width=3,
-            ),
-        ]
-    else:
-        regions = []
+    template_height = 600
+    padding = 20
+    gap = 10
 
-    # Add extra regions for 3+ captions
-    for idx, key in enumerate(keys[2:], start=2):
-        y_pos = 20 + idx * 200
-        regions.append(
-            TextRegion(
-                label=key, x=20, y=min(y_pos, 500), width=760, height=180,
-                font_size=30, color="white", stroke_color="black", stroke_width=3,
+    if not keys:
+        regions = []
+    else:
+        num_regions = len(keys)
+        available_height = template_height - 2 * padding - gap * (num_regions - 1)
+        region_height = max(60, available_height // num_regions)
+        font_size = 36 if num_regions <= 2 else 30
+
+        regions = []
+        for idx, key in enumerate(keys):
+            y_pos = padding + idx * (region_height + gap)
+            regions.append(
+                TextRegion(
+                    label=key, x=20, y=y_pos, width=760, height=region_height,
+                    font_size=font_size, color="white", stroke_color="black",
+                    stroke_width=3,
+                )
             )
-        )
 
     return MemeTemplate(
         name=suggestion.template_name,
