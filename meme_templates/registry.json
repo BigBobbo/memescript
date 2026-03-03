@@ -8,8 +8,8 @@
       "tags": ["comparison", "preference", "choice", "rejection", "approval"],
       "humor_convention": "Top panel: thing being rejected/dismissed. Bottom panel: thing being preferred/approved. The humor comes from the contrast between what's rejected and what's chosen.",
       "text_regions": [
-        {"label": "rejected", "x": 400, "y": 20, "width": 380, "height": 280, "font_size": 32, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"},
-        {"label": "preferred", "x": 400, "y": 320, "width": 380, "height": 280, "font_size": 32, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"}
+        {"label": "rejected", "x": 400, "y": 20, "width": 370, "height": 280, "font_size": 32, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"},
+        {"label": "preferred", "x": 400, "y": 320, "width": 370, "height": 280, "font_size": 32, "color": "black", "stroke_color": "white", "stroke_width": 0, "align": "center"}
       ],
       "typical_uses": ["preferring worse option", "choosing shiny new thing over stable option", "rejecting best practices"],
       "width": 800,
@@ -146,8 +146,8 @@
       "humor_convention": "Four panels: Anakin makes a statement. Padme responds positively assuming a good outcome. Anakin stares silently. Padme's expression changes to concern. The humor comes from the gap between the optimistic assumption and the ominous reality.",
       "text_regions": [
         {"label": "statement", "x": 20, "y": 20, "width": 380, "height": 250, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
-        {"label": "hopeful_response", "x": 420, "y": 20, "width": 360, "height": 250, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
-        {"label": "worried_response", "x": 420, "y": 300, "width": 360, "height": 250, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+        {"label": "hopeful_response", "x": 420, "y": 20, "width": 350, "height": 250, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
+        {"label": "worried_response", "x": 420, "y": 300, "width": 350, "height": 250, "font_size": 24, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
       ],
       "typical_uses": ["feature that sounds good but has a catch", "migration that went wrong", "promises from management"],
       "width": 800,
@@ -264,7 +264,7 @@
       "humor_convention": "Two astronauts looking at Earth. First astronaut realizes something shocking ('Wait, it's all X?'). Second astronaut with gun: 'Always has been.' Used for revelations that something has always been a certain way.",
       "text_regions": [
         {"label": "realization", "x": 20, "y": 20, "width": 450, "height": 100, "font_size": 26, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"},
-        {"label": "response", "x": 400, "y": 400, "width": 380, "height": 100, "font_size": 26, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
+        {"label": "response", "x": 400, "y": 400, "width": 370, "height": 100, "font_size": 26, "color": "white", "stroke_color": "black", "stroke_width": 2, "align": "center"}
       ],
       "typical_uses": ["everything is JavaScript", "all code is technical debt", "every app is a CRUD app"],
       "width": 800,

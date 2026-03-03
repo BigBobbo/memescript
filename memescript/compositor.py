@@ -90,6 +90,36 @@ def render_meme(
     return str(output_path)
 
 
+def _measure_text_width(font, text: str, font_size: int) -> int:
+    """Measure the rendered width of text using the font."""
+    try:
+        bbox = font.getbbox(text)
+        return bbox[2] - bbox[0]
+    except AttributeError:
+        return len(text) * (font_size * 2 // 3)
+
+
+def _wrap_text_to_width(font, text: str, max_width: int, font_size: int) -> list[str]:
+    """Wrap text so each line fits within max_width pixels using actual font measurements."""
+    words = text.split()
+    if not words:
+        return []
+
+    lines: list[str] = []
+    current_line = words[0]
+
+    for word in words[1:]:
+        test_line = current_line + " " + word
+        if _measure_text_width(font, test_line, font_size) <= max_width:
+            current_line = test_line
+        else:
+            lines.append(current_line)
+            current_line = word
+
+    lines.append(current_line)
+    return lines
+
+
 def _draw_text_in_region(
     draw: ImageDraw.ImageDraw,
     region: TextRegion,
@@ -97,12 +127,31 @@ def _draw_text_in_region(
     image_size: tuple[int, int],
 ) -> None:
     """Draw text within a defined region with meme-style formatting."""
+    img_width, img_height = image_size
     font_size = region.font_size
     font = _get_font(font_size)
 
-    # Word-wrap to fit region width
-    max_chars = max(1, region.width // (font_size // 2))
-    wrapped_lines = textwrap.wrap(text.upper(), width=max_chars)
+    # Clamp region to image bounds
+    region_right = min(region.x + region.width, img_width)
+    region_x = max(0, region.x)
+    effective_width = region_right - region_x
+
+    if effective_width <= 0:
+        return
+
+    # Add a small margin so text doesn't touch the image edge
+    margin = max(4, font_size // 4)
+    if region_x + effective_width >= img_width:
+        effective_width -= margin
+    if region_x <= 0:
+        region_x += margin
+        effective_width -= margin
+
+    if effective_width <= 0:
+        return
+
+    # Word-wrap using actual font measurements
+    wrapped_lines = _wrap_text_to_width(font, text.upper(), effective_width, font_size)
 
     if not wrapped_lines:
         return
@@ -119,18 +168,17 @@ def _draw_text_in_region(
         y = y_start + i * line_height
 
         # Calculate x position for alignment
-        try:
-            bbox = font.getbbox(line)
-            text_width = bbox[2] - bbox[0]
-        except AttributeError:
-            text_width = len(line) * (font_size // 2)
+        text_width = _measure_text_width(font, line, font_size)
 
         if region.align == "center":
-            x = region.x + (region.width - text_width) // 2
+            x = region_x + (effective_width - text_width) // 2
         elif region.align == "right":
-            x = region.x + region.width - text_width
+            x = region_x + effective_width - text_width
         else:
-            x = region.x
+            x = region_x
+
+        # Clamp x so text stays within image bounds
+        x = max(0, min(x, img_width - text_width))
 
         # Draw stroke/outline
         if region.stroke_width > 0:
