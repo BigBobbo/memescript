@@ -53,8 +53,13 @@ def render_meme(
     template_dir: str | Path,
     output_dir: str | Path,
     index: int = 0,
+    enable_terrain: bool = True,
 ) -> Optional[str]:
     """Render a meme by overlaying captions onto a template image.
+
+    Args:
+        enable_terrain: If True, use the template background image (terrain).
+            If False, render captions on a plain background.
 
     Returns the path to the output image, or None if rendering fails.
     """
@@ -62,15 +67,18 @@ def render_meme(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    template_path = template_dir / template.filename
-    if not template_path.exists():
-        logger.warning(
-            "Template image not found: %s — generating placeholder.",
-            template_path,
-        )
-        img = _create_placeholder(template, suggestion)
+    if not enable_terrain:
+        img = _create_plain_background(template)
     else:
-        img = Image.open(template_path).convert("RGBA")
+        template_path = template_dir / template.filename
+        if not template_path.exists():
+            logger.warning(
+                "Template image not found: %s — generating placeholder.",
+                template_path,
+            )
+            img = _create_placeholder(template, suggestion)
+        else:
+            img = Image.open(template_path).convert("RGBA")
 
     # Draw captions onto the image
     draw = ImageDraw.Draw(img)
@@ -148,6 +156,24 @@ def _draw_text_in_region(
         draw.text((x, y), line, font=font, fill=region.color)
 
 
+def _create_plain_background(template: MemeTemplate) -> Image.Image:
+    """Create a plain background when terrain is toggled off."""
+    width = template.width or 800
+    height = template.height or 600
+    img = Image.new("RGBA", (width, height), (30, 30, 30, 255))
+    draw = ImageDraw.Draw(img)
+
+    # Draw region outlines so text placement is still visible
+    for region in template.text_regions:
+        draw.rectangle(
+            [region.x, region.y, region.x + region.width, region.y + region.height],
+            outline=(60, 60, 60),
+            width=1,
+        )
+
+    return img
+
+
 def _create_placeholder(
     template: MemeTemplate,
     suggestion: MemeSuggestion,
@@ -182,6 +208,7 @@ def composite_all(
     suggestions: list[MemeSuggestion],
     config: PipelineConfig,
     meme_db: Optional[MemeDatabase] = None,
+    enable_terrain: bool = True,
 ) -> list[MemeOutput]:
     """Render all suggestions and produce MemeOutput objects."""
     outputs = []
@@ -202,6 +229,7 @@ def composite_all(
             template_dir=config.template_dir,
             output_dir=config.output_dir,
             index=i,
+            enable_terrain=enable_terrain,
         )
 
         output = MemeOutput(

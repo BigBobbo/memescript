@@ -4,6 +4,7 @@ import pytest
 from pathlib import Path
 
 from memescript.compositor import (
+    _create_plain_background,
     _estimate_duration,
     _make_generic_template,
     _slugify,
@@ -128,6 +129,52 @@ class TestRenderMeme:
         assert output_dir.exists()
         assert Path(output_path).exists()
 
+    def test_renders_with_terrain_disabled(self, tmp_path):
+        suggestion = _make_suggestion()
+        template = _make_template()
+
+        output_path = render_meme(
+            suggestion=suggestion,
+            template=template,
+            template_dir=tmp_path / "templates",
+            output_dir=tmp_path / "output",
+            index=0,
+            enable_terrain=False,
+        )
+
+        assert output_path is not None
+        assert Path(output_path).exists()
+
+    def test_renders_with_terrain_enabled(self, tmp_path):
+        suggestion = _make_suggestion()
+        template = _make_template()
+
+        output_path = render_meme(
+            suggestion=suggestion,
+            template=template,
+            template_dir=tmp_path / "templates",
+            output_dir=tmp_path / "output",
+            index=0,
+            enable_terrain=True,
+        )
+
+        assert output_path is not None
+        assert Path(output_path).exists()
+
+
+class TestCreatePlainBackground:
+    def test_creates_correct_size_image(self):
+        template = _make_template()
+        img = _create_plain_background(template)
+        assert img.size == (800, 600)
+
+    def test_uses_default_size_when_not_set(self):
+        template = _make_template()
+        template.width = 0
+        template.height = 0
+        img = _create_plain_background(template)
+        assert img.size == (800, 600)
+
 
 class TestCompositeAll:
     def test_composites_multiple_suggestions(self, tmp_path):
@@ -167,6 +214,17 @@ class TestCompositeAll:
 
         outputs = composite_all(suggestions, config)
         assert outputs[0].timestamp_start == "00:15"
+
+    def test_composites_with_terrain_disabled(self, tmp_path):
+        suggestions = [_make_suggestion()]
+        config = PipelineConfig(
+            template_dir=str(tmp_path / "templates"),
+            output_dir=str(tmp_path / "output"),
+        )
+
+        outputs = composite_all(suggestions, config, enable_terrain=False)
+        assert len(outputs) == 1
+        assert all(o.image_path is not None for o in outputs)
 
 
 class TestMakeGenericTemplate:

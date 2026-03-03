@@ -192,6 +192,7 @@ class PipelineConfig:
     quality_threshold: float = 3.0
     enable_critic: bool = True
     enable_compositing: bool = True
+    enable_terrain: bool = True
     template_dir: str = "meme_templates"
     output_dir: str = "output"
     model: str = "claude-sonnet-4-20250514"

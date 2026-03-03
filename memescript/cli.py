@@ -11,6 +11,7 @@ from pathlib import Path
 from .models import MemeDensity, PipelineConfig
 from .meme_db import MemeDatabase, get_default_database
 from .pipeline import run_pipeline, run_analysis_only, run_suggestions_only
+from .preview import run_preview
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -79,6 +80,12 @@ def main(argv: list[str] | None = None) -> int:
         "--audience",
         default=None,
         help="Audience description for prompt tuning.",
+    )
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Launch interactive preview mode after rendering. "
+             "Use hotkeys (T=toggle terrain, ?=help) instead of CLI flags.",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -165,6 +172,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Memes output: {len(result.outputs)}", file=sys.stderr)
     if result.outputs and config.enable_compositing:
         print(f"Output directory: {config.output_dir}", file=sys.stderr)
+
+    # Launch interactive preview if requested
+    if args.preview and result.outputs:
+        run_preview(result, config, meme_db)
 
     return 0
 

@@ -102,7 +102,7 @@ def run_pipeline(
     outputs = []
     if config.enable_compositing:
         logger.info("=== Stage 5: Image Compositing ===")
-        outputs = composite_all(suggestions, config, meme_db)
+        outputs = composite_all(suggestions, config, meme_db, config.enable_terrain)
 
         # Attach critiques to outputs
         critique_map = {id(c.suggestion): c for c in critiques}
