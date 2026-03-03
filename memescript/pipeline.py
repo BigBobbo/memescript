@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -21,6 +23,22 @@ from .models import (
 from .selector import select_memes
 
 logger = logging.getLogger(__name__)
+
+
+def _display_phase_banner(text: str) -> None:
+    """Display a phase banner centered in the middle of the terminal."""
+    terminal = shutil.get_terminal_size((80, 24))
+    width = terminal.columns
+    height = terminal.lines
+
+    banner_line = f" {text} ".center(width, "=")
+
+    top_padding = height // 2 - 1
+    print("\n" * top_padding, end="", file=sys.stderr)
+    print(banner_line, file=sys.stderr)
+    print("\n" * (height // 2 - 1), end="", file=sys.stderr)
+
+    logger.info(text)
 
 
 def run_pipeline(
@@ -57,7 +75,7 @@ def run_pipeline(
         llm = LLMClient(model=config.model)
 
     # Stage 1: Script analysis
-    logger.info("=== Stage 1: Script Analysis ===")
+    _display_phase_banner("Stage 1: Script Analysis")
     lines = parse_script(script)
     moments = analyze_script(lines, config, llm)
 
@@ -73,7 +91,7 @@ def run_pipeline(
         )
 
     # Stage 2: Meme selection
-    logger.info("=== Stage 2: Meme Selection ===")
+    _display_phase_banner("Stage 2: Meme Selection")
     suggestions = select_memes(moments, config, meme_db, llm)
 
     if not suggestions:
@@ -88,20 +106,20 @@ def run_pipeline(
         )
 
     # Stage 3: Caption refinement
-    logger.info("=== Stage 3: Caption Refinement ===")
+    _display_phase_banner("Stage 3: Caption Refinement")
     suggestions = refine_captions(suggestions, config, meme_db, llm)
 
     # Stage 4: Quality critique
     critiques = []
     if config.enable_critic:
-        logger.info("=== Stage 4: Quality Critique ===")
+        _display_phase_banner("Stage 4: Quality Critique")
         critiques = critique_suggestions(suggestions, config, llm)
         suggestions, critiques = filter_by_quality(suggestions, critiques, config)
 
     # Stage 5: Image compositing
     outputs = []
     if config.enable_compositing:
-        logger.info("=== Stage 5: Image Compositing ===")
+        _display_phase_banner("Stage 5: Image Compositing")
         outputs = composite_all(suggestions, config, meme_db)
 
         # Attach critiques to outputs
