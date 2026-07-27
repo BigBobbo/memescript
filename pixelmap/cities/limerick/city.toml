@@ -53,9 +53,10 @@ rotation_source = "m2: bend-optimal family 32.75+90k, member with west on the ri
 
 [grid]
 # Ground cell size in metres. A cell renders as a 4x2 px rhombus.
-# Pixorama scale: an 8 m house frontage is 53 px wide and a 2-storey house is
-# 27 px tall — enough room for windows, doors and chimneys. Canvas size follows
-# from this and the frame extents (8250 x 2594 px), rather than being fixed.
+# Pixorama scale. Measured on screen, an 8 m frontage spans ~30 px along an iso
+# diagonal (38 px if the wall runs screen-horizontal), and a 2-storey wall is
+# ~47 px tall at 2.2x exaggeration — roughly 1400 px of facade to work with.
+# Canvas size follows from this and the frame extents, rather than being fixed.
 cell_m = 0.6
 
 [print]

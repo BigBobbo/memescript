@@ -8,7 +8,7 @@ second project.
 schematize stage are built: every street, bank and footprint is snapped onto the
 eight directions that render as crisp isometric lines (70% of road length, up
 from 11%). Framed with the Shannon low and west on the right, at Pixorama-scale
-detail (8 m frontage = 53 px). Styling is next. See [`PLAN.md`](PLAN.md) for the full design and
+detail (an 8 m frontage is ~30 px of wall, a 2-storey house ~47 px tall). Styling is next. See [`PLAN.md`](PLAN.md) for the full design and
 [`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and locked.
 
 ## Setup
