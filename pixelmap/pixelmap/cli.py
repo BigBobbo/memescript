@@ -3,6 +3,7 @@
     pixelmap fetch limerick
     pixelmap bearings limerick
     pixelmap greybox limerick [--study]
+    pixelmap frame limerick [--cell 1.4] [--annotate]
 """
 
 from __future__ import annotations
@@ -143,6 +144,48 @@ def _load_landmarks(city: City) -> list[dict]:
         return []
     with path.open("rb") as fh:
         return tomllib.load(fh).get("landmark", [])
+
+
+def cmd_frame(args) -> int:
+    """Render the configured frame — the composition of record."""
+    from PIL import Image
+    from pyproj import Transformer
+
+    from .frame import camera_for, true_storey_px
+    from .greybox import annotate_landmarks, render, save_preview
+
+    city = load_city(args.city)
+    layers = _extract_cached(city, force=args.force)
+    cell_m = args.cell or city.cell_m
+    camera = camera_for(city, cell_m=cell_m)
+
+    img, stats = render(layers, camera)
+    path = save_preview(img, city.out / f"{args.slug}.png")
+
+    preview = img.copy()
+    preview.thumbnail((1900, 1900), Image.LANCZOS)
+    preview.save(city.out / f"{args.slug}-preview.png")
+
+    if args.annotate:
+        to_crs = Transformer.from_crs("EPSG:4326", city.crs, always_xy=True)
+        marks = [m for m in _load_landmarks(city)
+                 if m.get("short") not in set(city.config["frame"].get("exclude", []))]
+        annotated, placement = annotate_landmarks(img, camera, marks, to_crs)
+        small = annotated.copy()
+        small.thumbnail((1900, 1900), Image.LANCZOS)
+        small.save(city.out / f"{args.slug}-annotated.png")
+        missing = [n for (n, ok) in placement if not ok]
+        if missing:
+            print(f"  off canvas: {', '.join(missing)}")
+
+    across, deep = camera.ground_extent_m()
+    print(f"{camera.width_px}x{camera.height_px} px ({camera.width_px/camera.height_px:.1f}:1) "
+          f"· rot {camera.rotation_deg:.2f} · cell {cell_m} m")
+    print(f"  ground {across:.0f} x {deep:.0f} m · {stats.buildings_drawn} buildings")
+    print(f"  8 m frontage {8/cell_m*4:.0f} px · storey {camera.storey_px:.1f} px "
+          f"(true isometric {true_storey_px(cell_m):.1f})")
+    print(f"  wrote {path}")
+    return 0
 
 
 def cmd_greybox(args) -> int:
@@ -302,6 +345,15 @@ def main(argv: list[str] | None = None) -> int:
     p_grey.add_argument("--lon", type=float, default=None)
     p_grey.add_argument("--force", action="store_true", help="re-run extract")
     p_grey.set_defaults(func=cmd_greybox)
+
+    p_frame = sub.add_parser("frame", help="render the configured frame")
+    p_frame.add_argument("city")
+    p_frame.add_argument("--cell", type=float, default=None,
+                         help="override cell size in metres (smaller = more detail)")
+    p_frame.add_argument("--slug", default="frame")
+    p_frame.add_argument("--annotate", action="store_true")
+    p_frame.add_argument("--force", action="store_true", help="re-run extract")
+    p_frame.set_defaults(func=cmd_frame)
 
     args = parser.parse_args(argv)
     return args.func(args)

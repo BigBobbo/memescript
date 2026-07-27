@@ -144,6 +144,59 @@ judgement calls the data cannot make.
    against it; the isometric view's deeper-than-wide ground rectangle suits
    landscape well.
 
+## 6b. M1b — reframed to the river brief
+
+After reviewing G1 the brief changed: **Shannon low and horizontal, old city
+above it, west on the right-hand side, and Pixorama-scale detail.** Re-measuring
+against that:
+
+| Feature | Axis | Reading |
+|---|---|---|
+| Shannon, in-frame reach | **51.1°** | measured by PCA over the water mass actually in shot |
+| Dock Road | **58.7°** | only 7.6° off the river — they can be level together |
+| Georgian grid | 31.6° | ~19.5° off the river |
+
+Two data corrections worth recording. Overpass returns **whole** river polygons,
+so the water layer spans 18 km and its centroid sits far outside any frame —
+the river's vertical placement is now anchored on a named mid-channel point at
+Sarsfield Bridge instead. And the earlier 110.8° figure was the estuary reach
+well west of the city, not the reach in frame.
+
+**Locked for M1b:** rotation **192.25°** (screen-right = WSW, 237°), which puts
+the river 6.1° and Dock Road 1.4° off horizontal — both effectively level, with
+west to the right exactly as briefed. Cell size **0.6 m**, giving an 8 m frontage
+53 px wide and a 2-storey house 27 px tall, on an 8250 × 2594 px canvas
+(3.2:1 panorama) covering 1750 × 1100 m.
+
+### The trade-off this forces
+
+Crisp directions in 2:1 isometric repeat every 45°, alternating between two
+families:
+
+- **even multiples** of 45° off the grid fit — footprints land on the iso
+  diagonals, so buildings show two walls: the classic isometric silhouette;
+- **odd multiples** — footprints land on the screen axes, so buildings read
+  flatter and more plan-like.
+
+Because the river runs ~19.5° off the Georgian grid, **a level river forces the
+odd family.** Bend cost is untouched (still 6.18°) — only the silhouettes change.
+Compare `gates/g1b-river-level.png` against `gates/g1b-iso-preserved.png`.
+
+**The way to get both** is to straighten the Shannon in the schematize stage and
+return to the 237.25° family. The plan already sanctions straightening geometry,
+and the river is the one feature where a liberty buys the whole composition. That
+is now the most valuable single item in M2.
+
+### Still open at this frame
+
+- Thomond Bridge and the Treaty Stone fall just off the lower-left edge; the
+  castle and King's Island are in. Widening to catch them pulls in more of the
+  north bank, which is dull.
+- The Shannon narrows toward the right of frame — that is real geometry (the
+  channel past the docks), not a data gap, but straightening would even it out.
+- 3.2:1 is a panorama, not a standard frame size. The `[print]` block is
+  deliberately non-binding until the composition settles.
+
 ## 7. Known gaps, carried into M2
 
 - Grey-box projects geometry straight to canvas pixels; the **cell-grid

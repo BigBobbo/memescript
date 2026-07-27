@@ -4,9 +4,9 @@ Turns OpenStreetMap data into a pixel-art isometric city map, built for print
 and framing. Limerick first; a second city is meant to be a config folder, not a
 second project.
 
-**Status:** M1 complete — data pipeline, street-orientation analysis, and
-grey-box composition renders. Awaiting gate G1 (composition sign-off) before
-styling begins. See [`PLAN.md`](PLAN.md) for the full design and
+**Status:** M1 complete, reframed at M1b to the river brief — Shannon low and
+horizontal, west on the right, at Pixorama-scale detail (8 m frontage = 53 px).
+Awaiting composition sign-off before styling begins. See [`PLAN.md`](PLAN.md) for the full design and
 [`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and locked.
 
 ## Setup
@@ -31,6 +31,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |
 | `greybox --study` | Six framing variants as a contact sheet |
 | `greybox --orientations` | All four quarter turns compared |
+| `frame` | Render the configured frame — the composition of record. `--cell` trades detail for speed |
 
 Renders land in `cities/<city>/out/` (gitignored); evidence kept for each gate
 lives in `cities/<city>/gates/`.
@@ -41,7 +42,7 @@ Everything Limerick-specific is data under `cities/limerick/`:
 
 | File | Contents |
 |---|---|
-| `city.toml` | bbox, CRS, rotation, cell size, frame centre, print size, seed |
+| `city.toml` | bbox, CRS, rotation, cell size, frame extents, print size, seed |
 | `landmarks.toml` | tier-1/2 landmarks — anchors for framing and, later, sprites |
 | `cache/raw/` | the committed OSM snapshot, so a print stays reproducible |
 

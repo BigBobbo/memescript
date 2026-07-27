@@ -22,54 +22,70 @@ east  = -8.600
 # Rotation applied before isometric projection, in degrees.
 # Positive = rotate the map counter-clockwise on screen.
 #
-# LOCKED AT M1. Chosen by minimising the length-weighted mean bend needed to
-# snap street segments onto the eight directions that render as clean pixel
-# lines, measured over the 179 streets of the Georgian core (14.5 km).
+# Grid alignment comes first: the value must stay in the family -32.75 + 45k,
+# which minimises the length-weighted bend needed to snap streets onto the eight
+# directions that render as clean pixel lines. Measured over the 179 streets of
+# the Georgian core (14.5 km):
 #
-#   rotation      core bend   core crisp   city crisp
-#   none           11.95°        12.0%        17.5%
-#   -32.75°         6.18°        58.1%        26.2%   <- locked
+#   rotation           core bend   core crisp   city crisp
+#   none                 11.95°       12.0%        17.5%
+#   -32.75 + 45k          6.18°       58.1%        26.2%
 #
-# The whole fetch area has almost no dominant grid (4-fold strength 0.03,
-# orderliness 0.02), so its own "optimum" of -25.9° is a shallow noise minimum
-# that would cut the core's crisp share to 19%. The core wins.
-# The final value adds a 90° compositional turn to that -32.75° fit. Turning by
-# a quarter maps the eight clean directions onto themselves, so all four turns
-# bend the streets identically and the choice is purely about composition:
-# at +90 the Shannon reads as distance across the top, the Georgian grid becomes
-# dense foreground, and the castle lands top-centre inside the river bend.
-rotation_deg = 57.25
-rotation_source = "m1-fit: bend-optimal over Georgian core (grid angle 31.61°, strength 0.657), turned +90° for composition"
+# The whole fetch area has almost no dominant grid (4-fold strength 0.03), so
+# its own "optimum" of -25.9° is a shallow noise minimum that would cut the
+# core's crisp share to 19%. The core wins.
+#
+# Composition brief (M1b): Shannon low and horizontal, west on the right, the
+# old city above the water. That fixes screen-right near west; 192.25 puts it at
+# WSW (237°), which lands the in-frame river (axis 51.1°) 6.1° off horizontal and
+# Dock Road (58.7°) 1.4° off — both effectively level.
+#
+# TRADE-OFF, deliberate and reversible. Crisp directions in 2:1 isometric repeat
+# every 45°, alternating between two families: even multiples put building
+# footprints on the iso diagonals (two visible walls, the classic look), odd
+# multiples put them on the screen axes (flatter, more plan-like). The river runs
+# ~19.5° off the Georgian grid, so a level river forces the odd family. Bend cost
+# is unaffected — still 6.18° — only the building silhouettes change.
+# To recover both: straighten the river in the schematize stage and return to the
+# 237.25 family. See M1-FINDINGS.md.
+rotation_deg = 192.25
+rotation_source = "m1b: river-level framing; core bend still 6.18° (grid-aligned family, odd multiple)"
 
 [grid]
 # Ground cell size in metres. A cell renders as a 4x2 px rhombus.
-# LOCKED AT M1: solved as the tightest crop that still fits every tier-1
-# landmark except Thomond Park. An 8 m house frontage is 18 px wide.
-cell_m = 1.812
+# Pixorama scale: an 8 m house frontage is 53 px wide and a 2-storey house is
+# 27 px tall — enough room for windows, doors and chimneys. Canvas size follows
+# from this and the frame extents (8250 x 2594 px), rather than being fixed.
+cell_m = 0.6
 
 [print]
-# 61x91 cm landscape at 300 DPI = 10800 x 7200 px.
+# NOT BINDING while iterating on composition and scale — kept as the eventual
+# framing target. At Pixorama scale the canvas is set by [frame] and [grid].
 width_cm  = 91.44
 height_cm = 60.96
 dpi       = 300
-upscale   = 6                  # art canvas 1800 x 1200 px, 0.51 mm per art pixel
 
 [render]
-storey_px      = 4.5           # vertical pixels per building storey.
-                               # True isometric at cell 1.812 m is 3.53 px;
-                               # 4.5 exaggerates by 27% so terraces read as
-                               # rows of houses rather than slabs (M1 study).
+# Height is expressed as a multiple of true isometric rather than in pixels, so
+# it stays correct when the cell size changes. True is 2 px per cell of height;
+# 1.27 makes terraces read as rows of houses rather than slabs (M1 study).
+height_exaggeration = 1.27
 default_levels = 2             # empirical Limerick default (83% of tagged = 2)
 
-[anchors]
-# Render window centre, LOCKED AT M1 by the landmark-fitting solver.
-# Shows 1153 x 1537 m of ground: Thomond Bridge and the castle at the top,
-# King's Island and the Abbey River to the right, the Georgian grid filling the
-# foreground, Colbert and St John's at the lower edge.
-centre = { lat = 52.664928, lon = -8.624746, note = "m1-solved frame centre" }
+[frame]
+# The ground rectangle in shot, so detail level and coverage stay independent.
+# Shows the Shannon along the bottom with King John's Castle and King's Island
+# at the lower left, the Georgian core filling the frame, and Sarsfield Bridge,
+# Shannon Bridge and Riverpoint running away to the west on the right.
+across_m = 1750
+deep_m   = 1100
+anchor   = { lat = 52.6672, lon = -8.6283 }
 
-# Thomond Park is 1.5 km north-west of everything else. Including it forces the
-# cell size from 1.81 m to 2.77 m and fills half the canvas with suburb, so it
-# is excluded from the frame fit. Open question for G1: drop it, or bring it
-# back as a small inset.
-frame_exclude = ["Thomond Park"]
+# The river is placed by a real mid-channel point rather than by its centroid:
+# Overpass returns whole river polygons spanning 18 km, so the centroid sits far
+# outside the frame and is useless as a reference.
+river_ref   = { lat = 52.66508, lon = -8.62972, note = "mid-channel, Sarsfield Bridge" }
+river_depth = 0.70              # 0 = top of canvas, 1 = bottom
+
+# West Limerick is out of scope for now, Thomond Park included.
+exclude = ["Thomond Park"]
