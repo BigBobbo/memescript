@@ -197,6 +197,65 @@ is now the most valuable single item in M2.
 - 3.2:1 is a panorama, not a standard frame size. The `[print]` block is
   deliberately non-binding until the composition settles.
 
+## 6c. M2 — snapping, and a correction to sections 3 and 6b
+
+### Correction: the rotation sign was inverted
+
+Building the snapping forced a re-derivation of the projection, which exposed a
+sign error in the M1 analysis. The camera rotates world coordinates by
+`rotation`, so a direction's bearing in the camera's frame is
+**`bearing - rotation`**. The alignment metric used `bearing + rotation`, so every
+rotation reported in sections 3 and 6b was the negation of the one that actually
+aligns the grid.
+
+Verified by measuring rendered screen angles directly, rather than by algebra —
+the share of core street length landing on a crisp screen slope:
+
+| Rotation | Crisp share |
+|---|---|
+| −32.75° (claimed "locked" at M1) | **14.4%** |
+| 57.25° (M1's frame) | 13.7% |
+| 192.25° (M1b's frame) | 11.6% |
+| 31.61° / 29.5° (corrected family) | **62–63%** |
+
+So the Georgian grid was never actually aligned in any earlier render; the 58.1%
+crisp figure in section 3 is wrong. The bend cost of 6.18° was right — that
+metric folds at 45° and is sign-symmetric — which is why the error survived.
+`rotated_bearing()` now exists so the convention lives in exactly one place.
+
+### Rotation, re-derived
+
+The bend-optimal family is **32.75 + 45k**, and the sub-family that also puts
+footprints on the 2:1 diagonals rather than the screen axes is **32.75 + 90k**.
+Locked at **212.75°** — the member with west on the right-hand side, preserving
+the M1b composition.
+
+This also dissolves the M1b trade-off. The two families are no longer a choice
+between a level river and isometric buildings, because the river is now bent
+onto the grid rather than the grid onto the river.
+
+### The schematize stage
+
+Every layer is pushed onto the eight crisp directions, with a different
+treatment per geometry type — each one guarding against a specific failure:
+
+- **Streets** relax as a connected network. Snapping ways independently pulls
+  junctions apart, so segments declare a direction and node positions are
+  averaged until the network agrees, with a weak anchor to original positions
+  so the network cannot drift off its landmarks.
+- **Buildings** rotate bodily onto the grid. Snapping edge by edge shreds a
+  footprint; a rigid rotation keeps right angles right and terraces intact.
+- **Water and greens** are simplified hard, then relaxed with an anchor. Three
+  guards proved necessary: simplify first or a surveyed wiggle becomes a
+  staircase; cap edge length or a single multi-kilometre edge (the Shannon is
+  one polygon spanning 18 km) swings its far end hundreds of metres when
+  rotated up to 22.5°; anchor to the original position or the ring grows
+  spikes. All three failures were observed before being fixed.
+
+**Result: road length on a crisp direction goes from 11.5% to 70.2%.** The
+remainder is mostly short service stubs whose snapped direction fights a
+neighbour's.
+
 ## 7. Known gaps, carried into M2
 
 - Grey-box projects geometry straight to canvas pixels; the **cell-grid

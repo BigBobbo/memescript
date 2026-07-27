@@ -4,9 +4,11 @@ Turns OpenStreetMap data into a pixel-art isometric city map, built for print
 and framing. Limerick first; a second city is meant to be a config folder, not a
 second project.
 
-**Status:** M1 complete, reframed at M1b to the river brief — Shannon low and
-horizontal, west on the right, at Pixorama-scale detail (8 m frontage = 53 px).
-Awaiting composition sign-off before styling begins. See [`PLAN.md`](PLAN.md) for the full design and
+**Status:** M2 in progress. Data pipeline, orientation analysis and the
+schematize stage are built: every street, bank and footprint is snapped onto the
+eight directions that render as crisp isometric lines (70% of road length, up
+from 11%). Framed with the Shannon low and west on the right, at Pixorama-scale
+detail (8 m frontage = 53 px). Styling is next. See [`PLAN.md`](PLAN.md) for the full design and
 [`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and locked.
 
 ## Setup
@@ -31,7 +33,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |
 | `greybox --study` | Six framing variants as a contact sheet |
 | `greybox --orientations` | All four quarter turns compared |
-| `frame` | Render the configured frame — the composition of record. `--cell` trades detail for speed |
+| `frame` | Render the configured frame — the composition of record. `--cell` trades detail for speed, `--raw` skips snapping |
 
 Renders land in `cities/<city>/out/` (gitignored); evidence kept for each gate
 lives in `cities/<city>/gates/`.
@@ -52,8 +54,9 @@ The pipeline never branches on city name.
 
 `fetch` → `extract` → `schematize` → `discretize` → `decorate` → `render` → `compose`
 
-Stages 0–1 are built. `greybox` short-circuits straight from extract to a
-throwaway renderer so composition can be judged before the real one exists.
+Stages 0–2 are built. `frame` short-circuits from schematize to a throwaway
+grey-box renderer so composition and geometry can be judged before the real
+renderer exists; `--raw` skips schematize to show true OSM geometry.
 
 ## Attribution
 

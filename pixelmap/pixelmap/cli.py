@@ -159,6 +159,16 @@ def cmd_frame(args) -> int:
     cell_m = args.cell or city.cell_m
     camera = camera_for(city, cell_m=cell_m)
 
+    if not args.raw:
+        from .schematize import crisp_share, schematize
+
+        before = crisp_share(layers.roads, city.rotation_deg)
+        layers = schematize(layers, city.rotation_deg,
+                            road_simplify_m=city.config["schematize"]["road_simplify_m"],
+                            water_simplify_m=city.config["schematize"]["water_simplify_m"])
+        after = crisp_share(layers.roads, city.rotation_deg)
+        print(f"  road length on a crisp direction: {before*100:.1f}% -> {after*100:.1f}%")
+
     img, stats = render(layers, camera)
     path = save_preview(img, city.out / f"{args.slug}.png")
 
@@ -351,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
     p_frame.add_argument("--cell", type=float, default=None,
                          help="override cell size in metres (smaller = more detail)")
     p_frame.add_argument("--slug", default="frame")
+    p_frame.add_argument("--raw", action="store_true",
+                         help="skip schematize and draw true OSM geometry")
     p_frame.add_argument("--annotate", action="store_true")
     p_frame.add_argument("--force", action="store_true", help="re-run extract")
     p_frame.set_defaults(func=cmd_frame)

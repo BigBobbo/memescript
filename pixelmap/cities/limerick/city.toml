@@ -48,8 +48,8 @@ east  = -8.600
 # is unaffected — still 6.18° — only the building silhouettes change.
 # To recover both: straighten the river in the schematize stage and return to the
 # 237.25 family. See M1-FINDINGS.md.
-rotation_deg = 192.25
-rotation_source = "m1b: river-level framing; core bend still 6.18° (grid-aligned family, odd multiple)"
+rotation_deg = 212.75
+rotation_source = "m2: bend-optimal family 32.75+90k, member with west on the right and the grid on the 2:1 diagonals"
 
 [grid]
 # Ground cell size in metres. A cell renders as a 4x2 px rhombus.
@@ -77,15 +77,22 @@ default_levels = 2             # empirical Limerick default (83% of tagged = 2)
 # Shows the Shannon along the bottom with King John's Castle and King's Island
 # at the lower left, the Georgian core filling the frame, and Sarsfield Bridge,
 # Shannon Bridge and Riverpoint running away to the west on the right.
-across_m = 1750
-deep_m   = 1100
-anchor   = { lat = 52.6672, lon = -8.6283 }
+across_m = 1850
+deep_m   = 1200
+anchor   = { lat = 52.6683, lon = -8.6274 }
 
 # The river is placed by a real mid-channel point rather than by its centroid:
 # Overpass returns whole river polygons spanning 18 km, so the centroid sits far
 # outside the frame and is useless as a reference.
 river_ref   = { lat = 52.66508, lon = -8.62972, note = "mid-channel, Sarsfield Bridge" }
-river_depth = 0.70              # 0 = top of canvas, 1 = bottom
+river_depth = 0.56              # 0 = top of canvas, 1 = bottom
 
 # West Limerick is out of scope for now, Thomond Park included.
 exclude = ["Thomond Park"]
+
+[schematize]
+# How hard geometry is simplified before it is snapped onto the eight crisp
+# directions. Roads keep their shape; water is simplified hard so the Shannon
+# becomes a few long deliberate reaches rather than a snapped staircase.
+road_simplify_m  = 8.0
+water_simplify_m = 45.0

@@ -28,13 +28,15 @@ class GridFit:
 
     @property
     def rotation_deg(self) -> float:
-        """Rotation to apply so the dominant grid lands on the isometric axes.
+        """Rotation that lands the dominant grid on the isometric axes.
 
-        Chosen from the four equivalent grid angles as the smallest correction,
-        so the map never ends up gratuitously upside down.
+        The camera's rotated bearing is `bearing - rotation`, so the grid is
+        aligned when the rotation equals the grid angle (modulo the 45-degree
+        symmetry of the crisp directions). Adding a multiple of 90 keeps the
+        grid on the 2:1 diagonals rather than the screen axes.
         """
         candidates = [self.grid_angle_deg - k * 90.0 for k in range(4)]
-        return -min(candidates, key=abs)
+        return min(candidates, key=abs)
 
 
 def rose(bearings: list[tuple[float, float]], bins: int = 36) -> list[float]:
@@ -92,10 +94,26 @@ def fit_grid(bearings: list[tuple[float, float]], bins: int = 36) -> GridFit:
 CLEAN_FOLD_DEG = 45.0
 
 
+def rotated_bearing(bearing: float, rotation: float) -> float:
+    """Bearing in the camera's rotated frame.
+
+    The camera rotates world coordinates by `rotation`, so a direction's bearing
+    in that frame is `bearing - rotation`. Getting this sign wrong silently
+    misaligns the whole map, so it lives in one named place.
+    """
+    return (bearing - rotation) % 360.0
+
+
 def _offset_from_clean(bearing: float, rotation: float, fold: float = CLEAN_FOLD_DEG) -> float:
     """Angle a segment must be bent through to land on a clean direction."""
-    offset = (bearing + rotation) % fold
+    offset = rotated_bearing(bearing, rotation) % fold
     return min(offset, fold - offset)
+
+
+def snapped_bearing(bearing: float, rotation: float, fold: float = CLEAN_FOLD_DEG) -> float:
+    """The world bearing this segment should take to render as a clean line."""
+    b = rotated_bearing(bearing, rotation)
+    return (round(b / fold) * fold + rotation) % 360.0
 
 
 def alignment_profile(
