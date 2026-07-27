@@ -1,0 +1,75 @@
+# Limerick — city configuration
+# Everything city-specific lives in this folder. The pixelmap pipeline itself
+# never branches on city name.
+
+[city]
+name        = "Limerick"
+name_local  = "Luimneach"
+slug        = "limerick"
+country     = "Ireland"
+crs         = "EPSG:2157"      # IRENET95 / Irish Transverse Mercator (metres)
+seed        = 2157
+
+[bbox]
+# Fetch window (WGS84). Wider than the render window so the crop can move
+# without re-fetching. ~4.4 x 4.1 km around the city core.
+south = 52.645
+west  = -8.660
+north = 52.685
+east  = -8.600
+
+[projection]
+# Rotation applied before isometric projection, in degrees.
+# Positive = rotate the map counter-clockwise on screen.
+#
+# LOCKED AT M1. Chosen by minimising the length-weighted mean bend needed to
+# snap street segments onto the eight directions that render as clean pixel
+# lines, measured over the 179 streets of the Georgian core (14.5 km).
+#
+#   rotation      core bend   core crisp   city crisp
+#   none           11.95°        12.0%        17.5%
+#   -32.75°         6.18°        58.1%        26.2%   <- locked
+#
+# The whole fetch area has almost no dominant grid (4-fold strength 0.03,
+# orderliness 0.02), so its own "optimum" of -25.9° is a shallow noise minimum
+# that would cut the core's crisp share to 19%. The core wins.
+# The final value adds a 90° compositional turn to that -32.75° fit. Turning by
+# a quarter maps the eight clean directions onto themselves, so all four turns
+# bend the streets identically and the choice is purely about composition:
+# at +90 the Shannon reads as distance across the top, the Georgian grid becomes
+# dense foreground, and the castle lands top-centre inside the river bend.
+rotation_deg = 57.25
+rotation_source = "m1-fit: bend-optimal over Georgian core (grid angle 31.61°, strength 0.657), turned +90° for composition"
+
+[grid]
+# Ground cell size in metres. A cell renders as a 4x2 px rhombus.
+# LOCKED AT M1: solved as the tightest crop that still fits every tier-1
+# landmark except Thomond Park. An 8 m house frontage is 18 px wide.
+cell_m = 1.812
+
+[print]
+# 61x91 cm landscape at 300 DPI = 10800 x 7200 px.
+width_cm  = 91.44
+height_cm = 60.96
+dpi       = 300
+upscale   = 6                  # art canvas 1800 x 1200 px, 0.51 mm per art pixel
+
+[render]
+storey_px      = 4.5           # vertical pixels per building storey.
+                               # True isometric at cell 1.812 m is 3.53 px;
+                               # 4.5 exaggerates by 27% so terraces read as
+                               # rows of houses rather than slabs (M1 study).
+default_levels = 2             # empirical Limerick default (83% of tagged = 2)
+
+[anchors]
+# Render window centre, LOCKED AT M1 by the landmark-fitting solver.
+# Shows 1153 x 1537 m of ground: Thomond Bridge and the castle at the top,
+# King's Island and the Abbey River to the right, the Georgian grid filling the
+# foreground, Colbert and St John's at the lower edge.
+centre = { lat = 52.664928, lon = -8.624746, note = "m1-solved frame centre" }
+
+# Thomond Park is 1.5 km north-west of everything else. Including it forces the
+# cell size from 1.81 m to 2.77 m and fills half the canvas with suburb, so it
+# is excluded from the frame fit. Open question for G1: drop it, or bring it
+# back as a small inset.
+frame_exclude = ["Thomond Park"]

@@ -1,0 +1,311 @@
+"""pixelmap command line.
+
+    pixelmap fetch limerick
+    pixelmap bearings limerick
+    pixelmap greybox limerick [--study]
+"""
+
+from __future__ import annotations
+
+import argparse
+import pickle
+import sys
+from pathlib import Path
+
+from .config import City, load_city
+
+
+def _extract_cached(city: City, *, force: bool = False):
+    """Extract layers, caching the projected result between runs."""
+    from .extract import extract
+
+    cache_path = city.cache / "layers.pickle"
+    raw_dir = city.cache / "raw"
+    if cache_path.exists() and not force:
+        newest_raw = max((p.stat().st_mtime for p in raw_dir.glob("*.json*")), default=0)
+        if cache_path.stat().st_mtime >= newest_raw:
+            with cache_path.open("rb") as fh:
+                layers = pickle.load(fh)
+            print(f"  layers: cached ({layers.summary()})")
+            return layers
+
+    layers = extract(raw_dir, city.crs)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    with cache_path.open("wb") as fh:
+        pickle.dump(layers, fh, protocol=pickle.HIGHEST_PROTOCOL)
+    return layers
+
+
+def cmd_fetch(args) -> int:
+    from .fetch import fetch_city
+
+    city = load_city(args.city)
+    print(f"fetch: {city.config['city']['name']}  bbox={city.bbox}")
+    fetch_city(city.config, city.cache, force=args.force)
+    return 0
+
+
+def cmd_bearings(args) -> int:
+    from .bearings import _offset_from_clean as _offset
+    from .bearings import alignment_profile, fit_grid, rose, snap_cost
+    from .extract import segment_bearings
+    from .plots import rose_figure
+    from shapely.geometry import Point
+    from pyproj import Transformer
+
+    city = load_city(args.city)
+    layers = _extract_cached(city, force=args.force)
+
+    # Streets only: driveways and car-park aisles are noise for grid detection.
+    streets = [r for r in layers.roads if r.importance <= 6]
+    all_bearings = segment_bearings(streets)
+    fit_all = fit_grid(all_bearings)
+
+    # The Georgian core on its own: the planned grid we actually want aligned.
+    transformer = Transformer.from_crs("EPSG:4326", city.crs, always_xy=True)
+    core_lon, core_lat = -8.6265, 52.6605          # mid O'Connell Street
+    cx, cy = transformer.transform(core_lon, core_lat)
+    core_centre = Point(cx, cy)
+    core_streets = [
+        r for r in streets if r.geom.distance(core_centre) <= args.core_radius
+    ]
+    core_bearings = segment_bearings(core_streets)
+    fit_core = fit_grid(core_bearings)
+
+    named = {r.name for r in core_streets if r.name}
+    print(f"\nwhole area : {len(streets)} streets, "
+          f"{fit_all.total_length_m / 1000:.1f} km")
+    print(f"  grid angle {fit_all.grid_angle_deg:.2f}°   strength {fit_all.strength:.3f}"
+          f"   entropy {fit_all.entropy:.2f} bits   orderliness {fit_all.orderliness:.3f}")
+    print(f"  -> rotation {fit_all.rotation_deg:+.2f}°")
+
+    print(f"\nGeorgian core ({args.core_radius:.0f} m radius): {len(core_streets)} streets, "
+          f"{fit_core.total_length_m / 1000:.1f} km")
+    print(f"  grid angle {fit_core.grid_angle_deg:.2f}°   strength {fit_core.strength:.3f}"
+          f"   entropy {fit_core.entropy:.2f} bits   orderliness {fit_core.orderliness:.3f}")
+    print(f"  -> rotation {fit_core.rotation_deg:+.2f}°")
+    print(f"  streets included: {', '.join(sorted(n for n in named if n)[:12])}")
+
+    profile_all = alignment_profile(all_bearings)
+    profile_core = alignment_profile(core_bearings)
+    best_all = max(profile_all, key=lambda p: p[1])
+    best_core = max(profile_core, key=lambda p: p[1])
+    print(f"\nclean-line share (within 5° of one of the 8 crisp directions):")
+    print(f"  whole area best +{best_all[0]:.1f}° -> {best_all[1] * 100:.1f}% of street length")
+    print(f"  core       best +{best_core[0]:.1f}° -> {best_core[1] * 100:.1f}%")
+
+    # Compare the candidate rotations on both the core and the whole city.
+    candidates = {
+        "fitted core grid": fit_core.rotation_deg,
+        "fitted whole area": fit_all.rotation_deg,
+        "configured": city.rotation_deg,
+        "none": 0.0,
+    }
+    print("\nrotation candidates      core clean   city clean   core bend   city bend")
+    for label, rotation in candidates.items():
+        core_share = sum(
+            length for bearing, length in core_bearings
+            if _offset(bearing, rotation) <= 5.0
+        ) / (sum(l for _, l in core_bearings) or 1.0)
+        all_share = sum(
+            length for bearing, length in all_bearings
+            if _offset(bearing, rotation) <= 5.0
+        ) / (sum(l for _, l in all_bearings) or 1.0)
+        print(f"  {label:<22} {rotation:+7.2f}° "
+              f"{core_share * 100:8.1f}% {all_share * 100:10.1f}% "
+              f"{snap_cost(core_bearings, rotation):9.2f}° {snap_cost(all_bearings, rotation):9.2f}°")
+
+    out = city.analysis
+    rose_figure(
+        rose(all_bearings), fit_all, profile_all,
+        title=f"{city.config['city']['name']} — street bearings, whole fetch area",
+        subtitle=f"{len(streets)} streets · {fit_all.total_length_m / 1000:.0f} km of "
+                 f"centreline · length-weighted · 36 bins",
+        path=out / "bearings-all.png",
+    )
+    rose_figure(
+        rose(core_bearings), fit_core, profile_core,
+        title=f"{city.config['city']['name']} — street bearings, Georgian core",
+        subtitle=f"{len(core_streets)} streets within {args.core_radius:.0f} m of "
+                 f"O'Connell Street · length-weighted · 36 bins",
+        path=out / "bearings-core.png",
+    )
+    print(f"\nwrote {out / 'bearings-all.png'}")
+    print(f"wrote {out / 'bearings-core.png'}")
+    return 0
+
+
+def _load_landmarks(city: City) -> list[dict]:
+    import tomllib
+
+    path = city.dir / "landmarks.toml"
+    if not path.exists():
+        return []
+    with path.open("rb") as fh:
+        return tomllib.load(fh).get("landmark", [])
+
+
+def cmd_greybox(args) -> int:
+    from .greybox import annotate_landmarks, render, save_preview
+    from .iso import Camera, solve_frame
+    from .plots import contact_sheet
+    from pyproj import Transformer
+
+    city = load_city(args.city)
+    layers = _extract_cached(city, force=args.force)
+
+    transformer = Transformer.from_crs("EPSG:4326", city.crs, always_xy=True)
+    landmarks = _load_landmarks(city)
+    anchor = city.config["anchors"]["centre"]
+    default_x, default_y = transformer.transform(anchor["lon"], anchor["lat"])
+
+    base_w = round(city.config["print"]["width_cm"] / 2.54 * city.config["print"]["dpi"]
+                   / city.config["print"]["upscale"])
+    base_h = round(city.config["print"]["height_cm"] / 2.54 * city.config["print"]["dpi"]
+                   / city.config["print"]["upscale"])
+    storey_px = city.config["render"]["storey_px"]
+    rotation = args.rotation if args.rotation is not None else city.rotation_deg
+
+    def fitted(width: int, height: int, rot: float, *, exclude: set[str] = frozenset(),
+               storey: float = None):
+        """Cell size and centre that fit the tier-1 landmarks, minus exclusions."""
+        pts = [
+            transformer.transform(m["lon"], m["lat"])
+            for m in landmarks
+            if m.get("tier", 1) == 1 and m.get("short") not in exclude
+        ]
+        if not pts:
+            return city.cell_m, default_x, default_y
+        # Reserve headroom proportional to how tall buildings will be drawn.
+        return solve_frame(
+            pts, rot, width, height, margin=0.07,
+            headroom_px=20 * (storey or storey_px),
+        )
+
+    # Thomond Park sits 1.5 km north-west of everything else, so including it
+    # forces the frame wide and fills half the canvas with suburb. The study
+    # exists to make that trade-off visible.
+    OUTLIER = {"Thomond Park"}
+
+    if args.orientations:
+        # A rotation of +/-90 degrees maps the eight clean directions onto
+        # themselves, so all four orientations bend the streets identically.
+        # The choice is purely compositional — hence looking at all of them.
+        variants = []
+        for quarter in (0, 90, 180, 270):
+            rot = rotation + quarter
+            cell_m, ox, oy = fitted(base_w, base_h, rot, exclude={"Thomond Park"})
+            variants.append((
+                f"{'NESW'[quarter // 90]}  turned {quarter} degrees  (rot {rot:+.2f})",
+                cell_m, rot, base_w, base_h, ox, oy, storey_px,
+            ))
+    elif args.study:
+        wide = fitted(base_w, base_h, rotation)
+        tight = fitted(base_w, base_h, rotation, exclude=OUTLIER)
+        turned = fitted(base_w, base_h, rotation + 90, exclude=OUTLIER)
+        portrait = fitted(base_h, base_w, rotation, exclude=OUTLIER)
+        tall = fitted(base_w, base_h, rotation, exclude=OUTLIER, storey=4.5)
+        variants = [
+            ("A  all tier-1 incl. Thomond Park · landscape",
+             *wide[:1], rotation, base_w, base_h, *wide[1:], storey_px),
+            ("B  tier-1 minus Thomond Park · landscape",
+             *tight[:1], rotation, base_w, base_h, *tight[1:], storey_px),
+            ("C  tier-1 minus Thomond Park · turned 90 degrees",
+             *turned[:1], rotation + 90, base_w, base_h, *turned[1:], storey_px),
+            ("D  tier-1 minus Thomond Park · portrait",
+             *portrait[:1], rotation, base_h, base_w, *portrait[1:], storey_px),
+            ("E  as B, storeys drawn 50 percent taller (4.5 px)",
+             *tall[:1], rotation, base_w, base_h, *tall[1:], 4.5),
+            ("F  tight core, castle to Colbert only",
+             *fitted(base_w, base_h, rotation,
+                     exclude=OUTLIER | {"Shannon Br", "St John's"})[:1],
+             rotation, base_w, base_h,
+             *fitted(base_w, base_h, rotation,
+                     exclude=OUTLIER | {"Shannon Br", "St John's"})[1:], storey_px),
+        ]
+    else:
+        if args.fit:
+            cell_m, ox, oy = fitted(base_w, base_h, rotation,
+                                    exclude=OUTLIER if args.tight else frozenset())
+        else:
+            cell_m, ox, oy = (args.cell or city.cell_m), default_x, default_y
+        variants = [(
+            f"cell {cell_m:.2f} m · rot {rotation:+.2f}°",
+            cell_m, rotation, base_w, base_h, ox, oy, storey_px,
+        )]
+
+    entries = []
+    for label, cell_m, rot, width, height, ox, oy, storeys in variants:
+        if ox is None:
+            ox, oy = default_x, default_y
+        if args.lat is not None and args.lon is not None:
+            ox, oy = transformer.transform(args.lon, args.lat)
+
+        camera = Camera(
+            origin_x=ox, origin_y=oy,
+            rotation_deg=rot, cell_m=cell_m,
+            width_px=width, height_px=height,
+            storey_px=storeys,
+        )
+        img, stats = render(layers, camera, draw_frame=True)
+        slug = label.split()[0].strip().lower() if (args.study or args.orientations) else "greybox"
+        path = save_preview(img, city.out / f"greybox-{slug}.png")
+
+        across, deep = stats.ground_extent_m
+        print(f"{label}\n    {width}x{height} px · cell {cell_m:.2f} m · "
+              f"{stats.buildings_drawn} buildings · ground {across / 1000:.2f} x "
+              f"{deep / 1000:.2f} km · -> {path.name}")
+
+        if landmarks:
+            annotated, placement = annotate_landmarks(img, camera, landmarks, transformer)
+            save_preview(annotated, city.out / f"greybox-{slug}-annotated.png")
+            missing = [
+                name for (name, ok), m in zip(placement, landmarks)
+                if not ok and m.get("tier", 1) == 1
+            ]
+            if missing:
+                print(f"    tier-1 off canvas: {', '.join(missing)}")
+            else:
+                print("    all tier-1 landmarks on canvas")
+        entries.append((label, path))
+
+    if len(entries) > 1:
+        sheet = contact_sheet(entries, city.out / "greybox-study.png")
+        print(f"\nwrote contact sheet {sheet}")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="pixelmap", description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_fetch = sub.add_parser("fetch", help="download raw OSM layers")
+    p_fetch.add_argument("city")
+    p_fetch.add_argument("--force", action="store_true", help="re-fetch cached layers")
+    p_fetch.set_defaults(func=cmd_fetch)
+
+    p_bear = sub.add_parser("bearings", help="street orientation analysis")
+    p_bear.add_argument("city")
+    p_bear.add_argument("--core-radius", type=float, default=450.0)
+    p_bear.add_argument("--force", action="store_true", help="re-run extract")
+    p_bear.set_defaults(func=cmd_bearings)
+
+    p_grey = sub.add_parser("greybox", help="unstyled composition render")
+    p_grey.add_argument("city")
+    p_grey.add_argument("--study", action="store_true", help="render the config comparison set")
+    p_grey.add_argument("--fit", action="store_true", help="solve cell size to fit tier-1 landmarks")
+    p_grey.add_argument("--tight", action="store_true", help="drop outlying landmarks when fitting")
+    p_grey.add_argument("--orientations", action="store_true", help="compare all four turns")
+    p_grey.add_argument("--cell", type=float, default=None)
+    p_grey.add_argument("--rotation", type=float, default=None)
+    p_grey.add_argument("--lat", type=float, default=None)
+    p_grey.add_argument("--lon", type=float, default=None)
+    p_grey.add_argument("--force", action="store_true", help="re-run extract")
+    p_grey.set_defaults(func=cmd_greybox)
+
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

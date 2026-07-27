@@ -1,0 +1,110 @@
+# Limerick landmarks — the charm layer.
+#
+# Tier 1 must survive any crop; tier 2 is wanted if the window allows.
+# Coordinates are anchors for composition checks and sprite placement; exact
+# footprints are resolved from OSM by id during the build.
+
+[[landmark]]
+tier = 1
+name = "King John's Castle"
+short = "Castle"
+lat = 52.66995
+lon = -8.62490
+
+[[landmark]]
+tier = 1
+name = "St Mary's Cathedral"
+short = "St Mary's"
+lat = 52.66741
+lon = -8.62370
+
+[[landmark]]
+tier = 1
+name = "St John's Cathedral"
+short = "St John's"
+lat = 52.66294
+lon = -8.61794
+
+[[landmark]]
+tier = 1
+name = "Thomond Bridge"
+short = "Thomond Br"
+lat = 52.67007
+lon = -8.62767
+
+[[landmark]]
+tier = 1
+name = "Sarsfield Bridge"
+short = "Sarsfield Br"
+lat = 52.66508
+lon = -8.62972
+
+[[landmark]]
+tier = 1
+name = "Shannon Bridge"
+short = "Shannon Br"
+lat = 52.66210
+lon = -8.63320
+
+[[landmark]]
+tier = 1
+name = "The Treaty Stone"
+short = "Treaty Stone"
+lat = 52.66964
+lon = -8.62809
+
+[[landmark]]
+tier = 1
+name = "Thomond Park"
+short = "Thomond Park"
+lat = 52.67431
+lon = -8.64281
+
+[[landmark]]
+tier = 1
+name = "Milk Market"
+short = "Milk Market"
+lat = 52.66362
+lon = -8.62200
+
+[[landmark]]
+tier = 1
+name = "Limerick Colbert Station"
+short = "Colbert"
+lat = 52.65913
+lon = -8.62404
+
+[[landmark]]
+tier = 2
+name = "Hunt Museum"
+short = "Hunt"
+lat = 52.66627
+lon = -8.62440
+
+[[landmark]]
+tier = 2
+name = "People's Park"
+short = "People's Park"
+lat = 52.65809
+lon = -8.62798
+
+[[landmark]]
+tier = 2
+name = "Riverpoint"
+short = "Riverpoint"
+lat = 52.66130
+lon = -8.63284
+
+[[landmark]]
+tier = 2
+name = "O'Connell Street (midpoint)"
+short = "O'Connell St"
+lat = 52.66050
+lon = -8.62650
+
+[[landmark]]
+tier = 2
+name = "King's Island (Englishtown core)"
+short = "King's Island"
+lat = 52.66850
+lon = -8.62300
