@@ -146,6 +146,42 @@ def _load_landmarks(city: City) -> list[dict]:
         return tomllib.load(fh).get("landmark", [])
 
 
+def cmd_frontages(args) -> int:
+    """Rank facades by the wall area they actually show."""
+    from pyproj import Transformer
+
+    from .frame import camera_for
+    from .frontages import concentration, rank_frontages, write_worksheet
+    from .schematize import schematize
+
+    city = load_city(args.city)
+    layers = _extract_cached(city, force=args.force)
+    layers = schematize(layers, city.rotation_deg,
+                        road_simplify_m=city.config["schematize"]["road_simplify_m"],
+                        water_simplify_m=city.config["schematize"]["water_simplify_m"])
+    camera = camera_for(city, cell_m=args.cell or city.cell_m)
+    inv = Transformer.from_crs(city.crs, "EPSG:4326", always_xy=True)
+
+    ranked = rank_frontages(layers.buildings, camera, city.cache / "raw", inv)
+    total = sum(f.visible_px for f in ranked) or 1.0
+    print(f"\n{len(ranked)} buildings show visible wall in this frame")
+    for share, count in sorted(concentration(ranked).items()):
+        print(f"  {share*100:.0f}% of visible wall area comes from the top "
+              f"{count} buildings ({count/len(ranked)*100:.1f}%)")
+
+    named = sum(1 for f in ranked if f.tags.get("name") or f.tags.get("addr:street"))
+    print(f"  {named} of them ({named/len(ranked)*100:.0f}%) carry a name or address in OSM")
+
+    print("\ntop frontages by visible wall:")
+    for i, f in enumerate(ranked[:12], start=1):
+        print(f"  {i:2}. {f.label[:38]:<40} {f.visible_px:8,.0f} px  "
+              f"{f.visible_px/total*100:5.2f}%")
+
+    path = write_worksheet(ranked, city.dir / "facades.md", limit=args.limit)
+    print(f"\nwrote {path}")
+    return 0
+
+
 def cmd_frame(args) -> int:
     """Render the configured frame — the composition of record."""
     from PIL import Image
@@ -366,6 +402,13 @@ def main(argv: list[str] | None = None) -> int:
     p_frame.add_argument("--annotate", action="store_true")
     p_frame.add_argument("--force", action="store_true", help="re-run extract")
     p_frame.set_defaults(func=cmd_frame)
+
+    p_front = sub.add_parser("frontages", help="rank facades by visible wall area")
+    p_front.add_argument("city")
+    p_front.add_argument("--cell", type=float, default=None)
+    p_front.add_argument("--limit", type=int, default=200)
+    p_front.add_argument("--force", action="store_true")
+    p_front.set_defaults(func=cmd_frontages)
 
     args = parser.parse_args(argv)
     return args.func(args)
