@@ -4,12 +4,13 @@ Turns OpenStreetMap data into a pixel-art isometric city map, built for print
 and framing. Limerick first; a second city is meant to be a config folder, not a
 second project.
 
-**Status:** M2 complete. Stages 0-2 and 5 are built — fetch, extract, schematize
-and a painted renderer with pitched roofs, windowed facades and shopfronts.
-Streets, banks and footprints are snapped onto the eight directions that render
-as crisp isometric lines (70% of road length, up from 11%). Framed with the
-Shannon low and west on the right, at Pixorama-scale detail (an 8 m frontage is
-~30 px of wall, a 2-storey house ~47 px tall). Landmarks are next. See [`PLAN.md`](PLAN.md) for the full design and
+**Status:** Stages 0-2 and 5 are built — fetch, extract, schematize, and a
+painted renderer with pitched roofs, windowed facades, shopfronts, walled quays
+and raised bridge decks. Streets, banks and footprints are snapped onto the
+eight directions that render as crisp isometric lines (70% of road length, up
+from 11%). Buildings are drawn at true isometric height with streets widened
+3.5 m per side instead. Framed with the Shannon low and west on the right, at
+0.3 m per cell: an 8 m frontage is ~107 px of wall. Landmarks are next. See [`PLAN.md`](PLAN.md) for the full design and
 [`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and locked.
 
 ## Setup

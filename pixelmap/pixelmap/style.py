@@ -43,6 +43,17 @@ class Style:
     #: widened, this is what makes the extra ground read as pavement.
     pavement: tuple[int, int, int] = (222, 219, 208)
     pavement_m: float = 3.0
+    #: The Shannon is tidal and walled through the city. `quay` is the wall face
+    #: seen across the water, `coping` its lit top course.
+    quay: tuple[int, int, int] = (132, 128, 118)
+    coping: tuple[int, int, int] = (196, 191, 178)
+    quay_m: float = 2.6
+    ripple: tuple[int, int, int] = (104, 158, 178)
+    #: Bridge decks are drawn as solid prisms rather than painted stripes.
+    bridge_deck: tuple[int, int, int] = (198, 192, 178)
+    bridge_side: tuple[int, int, int] = (150, 144, 132)
+    bridge_shadow: tuple[int, int, int] = (52, 96, 116)
+    bridge_rise_m: float = 4.5
     #: Glazing, and the fascia board above a shopfront.
     window: tuple[int, int, int] = (86, 104, 118)
     window_lit: tuple[int, int, int] = (236, 206, 138)
@@ -71,6 +82,14 @@ LIMERICK_DAY = Style(
     road_major=(206, 202, 190),
     pavement=(224, 221, 210),
     pavement_m=3.2,
+    quay=(126, 122, 112),
+    coping=(200, 195, 182),
+    quay_m=2.8,
+    ripple=(102, 156, 176),
+    bridge_deck=(202, 196, 182),
+    bridge_side=(154, 148, 136),
+    bridge_shadow=(50, 94, 114),
+    bridge_rise_m=4.5,
     rail=(150, 146, 138),
     outline=(46, 44, 52),
     window=(92, 112, 126),

@@ -218,7 +218,8 @@ def cmd_frame(args) -> int:
         print(f"  painted {stats.buildings} buildings · "
               f"{stats.roofs_tagged} pitched roofs · "
               f"{stats.facades_detailed} detailed facades · "
-              f"{stats.shopfronts} shopfronts")
+              f"{stats.shopfronts} shopfronts · "
+              f"{stats.quay_walls} quay walls · {stats.bridges} bridges")
     path = save_preview(img, city.out / f"{args.slug}.png")
 
     preview = img.copy()

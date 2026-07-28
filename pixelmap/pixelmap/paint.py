@@ -22,9 +22,9 @@ import math
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
-from shapely.geometry import Polygon
+from shapely.geometry import Point, Polygon
 
-from .extract import Building, Layers
+from .extract import Building, Layers, Road
 from .iso import Camera
 from .style import Facade, Style, facade_for, parse_colour, roof_for
 
@@ -43,6 +43,8 @@ class PaintStats:
     roofs_tagged: int = 0
     facades_detailed: int = 0
     shopfronts: int = 0
+    quay_walls: int = 0
+    bridges: int = 0
 
 
 def _rng(osm_id: str, seed: int, salt: str = "") -> float:
@@ -237,6 +239,128 @@ def _draw_roof(
     return True
 
 
+def _metre_px(camera: Camera) -> float:
+    """Screen pixels per metre of height."""
+    return camera.storey_px / 3.2
+
+
+def draw_water(
+    draw: ImageDraw.ImageDraw,
+    camera: Camera,
+    polygons: list[Polygon],
+    style: Style,
+    seed: int,
+) -> int:
+    """Water with a walled far bank and a lit coping.
+
+    The Shannon runs between quay walls through the city, and a flat fill reads
+    as a puddle. Rather than sinking the water surface — which spills over the
+    near bank and needs masking back — the wall is painted as a band along the
+    banks that face away from the viewer. Those are the walls you actually see
+    across a river; the near wall is below you, so only its top edge shows.
+    """
+    wall_px = style.quay_m * _metre_px(camera)
+    walls = 0
+
+    for poly in polygons:
+        ring = [camera.ground(x, y) for x, y in poly.exterior.coords]
+        if len(ring) < 4:
+            continue
+        draw.polygon(ring, fill=style.water)
+
+    for poly in polygons:
+        ring = [camera.ground(x, y) for x, y in poly.exterior.coords[:-1]]
+        n = len(ring)
+        if n < 3:
+            continue
+        cx = sum(p[0] for p in ring) / n
+        cy = sum(p[1] for p in ring) / n
+        for i in range(n):
+            a, b = ring[i], ring[(i + 1) % n]
+            nx, ny = (b[1] - a[1]), -(b[0] - a[0])
+            mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+            if (mx - cx) * nx + (my - cy) * ny < 0:
+                nx, ny = -nx, -ny
+            if ny >= 0:
+                continue  # near bank: we look over its coping, not at its face
+            draw.polygon([a, b, (b[0], b[1] + wall_px), (a[0], a[1] + wall_px)],
+                         fill=style.quay)
+            draw.line([a, b], fill=style.coping, width=max(1, int(wall_px * 0.22)))
+            walls += 1
+    return walls
+
+
+def draw_ripples(
+    draw: ImageDraw.ImageDraw,
+    camera: Camera,
+    polygons: list[Polygon],
+    style: Style,
+    seed: int,
+    *,
+    spacing_m: float = 26.0,
+) -> None:
+    """Sparse 2:1 dashes on the water, so the surface is not a dead fill."""
+    for index, poly in enumerate(polygons):
+        minx, miny, maxx, maxy = poly.bounds
+        if maxx - minx > 6000 or maxy - miny > 6000:
+            continue  # the estuary polygon runs for kilometres; skip it
+        step = spacing_m
+        y = miny
+        row = 0
+        while y < maxy:
+            row += 1
+            x = minx + (row % 2) * step * 0.5
+            while x < maxx:
+                if _rng(f"{index}:{int(x)}:{int(y)}", seed, "ripple") < 0.34 \
+                        and poly.contains(Point(x, y)):
+                    sx, sy = camera.ground(x, y)
+                    draw.polygon([(sx, sy), (sx + 4, sy + 2), (sx + 8, sy),
+                                  (sx + 4, sy - 2)], fill=style.ripple)
+                x += step
+            y += step * 0.5
+
+
+def draw_bridge(
+    draw: ImageDraw.ImageDraw,
+    camera: Camera,
+    road: Road,
+    style: Style,
+) -> None:
+    """A bridge as a raised deck, not a stripe painted on the river.
+
+    Thomond and Sarsfield carry the eye across the Shannon, and lying them flat
+    on the water made them read as paint. Extruding the carriageway gives a deck
+    with a visible side, which is most of what a bridge looks like from here.
+    """
+    rise = style.bridge_rise_m * _metre_px(camera)
+    band = road.geom.buffer(road.width_m / 2 + 1.2, cap_style=2, join_style=2)
+    for geom in getattr(band, "geoms", [band]):
+        if not isinstance(geom, Polygon) or geom.is_empty:
+            continue
+        ring = [camera.ground(x, y) for x, y in geom.exterior.coords[:-1]]
+        n = len(ring)
+        if n < 3:
+            continue
+        # A soft shadow on the water directly under the deck.
+        draw.polygon([(x + 2, y + 3) for x, y in ring], fill=style.bridge_shadow)
+
+        cx = sum(p[0] for p in ring) / n
+        cy = sum(p[1] for p in ring) / n
+        top = [(x, y - rise) for x, y in ring]
+        for i in range(n):
+            a, b = ring[i], ring[(i + 1) % n]
+            nx, ny = (b[1] - a[1]), -(b[0] - a[0])
+            mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+            if (mx - cx) * nx + (my - cy) * ny < 0:
+                nx, ny = -nx, -ny
+            if ny <= 0:
+                continue  # only the sides facing the viewer are visible
+            draw.polygon([a, b, (b[0], b[1] - rise), (a[0], a[1] - rise)],
+                         fill=style.bridge_side)
+        draw.polygon(top, fill=style.bridge_deck,
+                     outline=style.outline if style.outline_px else None)
+
+
 def draw_building(
     draw: ImageDraw.ImageDraw,
     camera: Camera,
@@ -321,34 +445,44 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
         area(a.geom, style.urban)
     for a in layers.green:
         area(a.geom, style.green_dark if a.kind in ("wood", "forest") else style.green)
+    water_polys: list[Polygon] = []
     for a in layers.water:
-        area(a.geom, style.water)
+        water_polys.append(a.geom)
     for w in layers.waterways:
         band = w.geom.buffer(w.width_m / 2, cap_style=2)
-        for g in getattr(band, "geoms", [band]):
-            area(g, style.water)
+        water_polys.extend(g for g in getattr(band, "geoms", [band])
+                           if isinstance(g, Polygon) and not g.is_empty)
+    stats.quay_walls = draw_water(draw, camera, water_polys, style, seed)
+    draw_ripples(draw, camera, water_polys, style, seed)
 
     # Pavements first, then carriageways on top, so every street gets a kerb.
     for road in sorted(layers.roads, key=lambda r: -r.width_m):
-        if road.tunnel or road.importance > 6:
+        if road.tunnel or road.bridge or road.importance > 6:
             continue
         band = road.geom.buffer(road.width_m / 2 + style.pavement_m,
                                 cap_style=2, join_style=1)
         for g in getattr(band, "geoms", [band]):
             area(g, style.pavement)
     for road in sorted(layers.roads, key=lambda r: -r.width_m):
-        if road.tunnel:
+        if road.tunnel or road.bridge:
             continue
         band = road.geom.buffer(road.width_m / 2, cap_style=2, join_style=1)
         colour = style.road_major if road.importance <= 4 else style.road
         for g in getattr(band, "geoms", [band]):
             area(g, colour)
     for track in layers.rail:
-        if track.tunnel:
+        if track.tunnel or track.bridge:
             continue
         band = track.geom.buffer(track.width_m / 2, cap_style=2)
         for g in getattr(band, "geoms", [band]):
             area(g, style.rail)
+
+    # Bridges last of the ground layers and back to front, so a deck passing in
+    # front of another sits over it.
+    spans = [r for r in (*layers.roads, *layers.rail) if r.bridge and not r.tunnel]
+    for road in sorted(spans, key=lambda r: camera.ground(*r.geom.centroid.coords[0])[1]):
+        draw_bridge(draw, camera, road, style)
+        stats.bridges += 1
 
     renderable = []
     for b in layers.buildings:
