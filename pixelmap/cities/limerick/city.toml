@@ -53,11 +53,11 @@ rotation_source = "m2: bend-optimal family 32.75+90k, member with west on the ri
 
 [grid]
 # Ground cell size in metres. A cell renders as a 4x2 px rhombus.
-# Pixorama scale. Measured on screen, an 8 m frontage spans ~30 px along an iso
-# diagonal (38 px if the wall runs screen-horizontal), and a 2-storey wall is
-# ~47 px tall at 2.2x exaggeration — roughly 1400 px of facade to work with.
-# Canvas size follows from this and the frame extents, rather than being fixed.
-cell_m = 0.6
+# Measured on screen at this cell size, an 8 m frontage spans ~45 px along an
+# iso diagonal and a 2-storey wall is ~70 px tall — about 3,100 px of facade,
+# roughly four times what 0.6 m gave. Canvas size follows from this and the
+# frame extents rather than being fixed, so coverage does not change.
+cell_m = 0.4
 
 [print]
 # NOT BINDING while iterating on composition and scale — kept as the eventual
@@ -68,9 +68,10 @@ dpi       = 300
 
 [render]
 # Height is expressed as a multiple of true isometric rather than in pixels, so
-# it stays correct when the cell size changes. True is 2 px per cell of height;
-# 1.27 makes terraces read as rows of houses rather than slabs (M1 study).
-height_exaggeration = 1.27
+# it stays correct when the cell size changes. True is 2 px per cell of height.
+# 2.2 is what the cartoon study picked: Limerick is low-rise (83% two-storey) and
+# reads flat at true height, while 3.2 starts occluding the street network.
+height_exaggeration = 2.2
 default_levels = 2             # empirical Limerick default (83% of tagged = 2)
 
 [frame]

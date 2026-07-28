@@ -68,6 +68,7 @@ def _wall_rect(a, b, lift, u0, u1, v0, v1):
 def _draw_facade(
     draw: ImageDraw.ImageDraw,
     a, b, lift: float,
+    length_m: float,
     building: Building,
     facade: Facade,
     style: Style,
@@ -81,10 +82,12 @@ def _draw_facade(
         return False, False
 
     levels = max(1, int(round(building.levels)))
-    # Window pitch is set on the ground, so columns stay honest regardless of
-    # how far the wall happens to be foreshortened on screen.
-    length_m = width_px  # proportional; the ratio below is what matters
-    columns = max(1, min(9, int(round(length_m / (MIN_WALL_W_PX * 0.85)))))
+    # Window count comes from the wall's real length on the ground, not from how
+    # many pixels it happens to occupy — otherwise zooming in would grow extra
+    # windows on a house that has not changed.
+    columns = max(1, min(12, int(round(length_m / WINDOW_PITCH_M))))
+    # ...but never more openings than the pixels can separate.
+    columns = min(columns, max(1, int(width_px // 4)))
 
     glass = style.window_lit if _rng(building.osm_id, seed, "lit") < 0.12 else style.window
     glass = glass if sunlit else _shade(glass, 0.86)
@@ -135,6 +138,29 @@ def _obb_corners(poly: Polygon) -> list[tuple[float, float]] | None:
     return list(obb.exterior.coords)[:4]
 
 
+#: Building types that are pitched by default in an Irish town.
+_PITCHED_KINDS = {
+    "house", "residential", "terrace", "semidetached_house", "detached",
+    "bungalow", "cottage", "apartments", "church", "chapel", "school", "yes",
+}
+#: Above this footprint area, a flat or parapet roof is the safer assumption —
+#: shopping centres, sheds and blocks rarely carry a single ridge.
+_PITCHED_MAX_AREA_M2 = 500.0
+
+
+def _infer_roof_shape(building: Building) -> str:
+    """What roof to draw when OSM does not say.
+
+    Only 30% of Limerick's buildings carry a `roof:shape`, and leaving the rest
+    flat reads as a city of slabs. Almost every small Irish building is pitched,
+    so small residential footprints get a ridge and larger or industrial ones
+    stay flat — an assumption, and one the render is better for.
+    """
+    if building.geom.area > _PITCHED_MAX_AREA_M2:
+        return "flat"
+    return "gabled" if building.kind in _PITCHED_KINDS else "flat"
+
+
 def _draw_roof(
     draw: ImageDraw.ImageDraw,
     camera: Camera,
@@ -145,8 +171,8 @@ def _draw_roof(
     lift: float,
     top: list[tuple[float, float]],
 ) -> bool:
-    """A pitched roof where the shape is known, a flat one otherwise."""
-    shape = (building.roof_shape or "").lower()
+    """A pitched roof where the shape is known or safely inferable."""
+    shape = (building.roof_shape or "").lower() or _infer_roof_shape(building)
     # Prefer what the mapper recorded, then the palette; never the wall colour.
     roof_colour = parse_colour(building.roof_colour) or roof_for(style, building.osm_id, seed)
     outline = style.outline if style.outline_px else None
@@ -243,8 +269,9 @@ def draw_building(
         draw.polygon([a, b, (b[0], b[1] - lift), (a[0], a[1] - lift)],
                      fill=colour, outline=outline)
         if visible:
-            detailed, shop = _draw_facade(draw, a, b, lift, building, facade,
-                                          style, seed, sunlit=sunlit)
+            length_m = math.dist(ring[i], ring[i + 1])
+            detailed, shop = _draw_facade(draw, a, b, lift, length_m, building,
+                                          facade, style, seed, sunlit=sunlit)
             stats.facades_detailed += int(detailed)
             stats.shopfronts += int(shop)
 
