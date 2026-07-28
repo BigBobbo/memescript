@@ -254,6 +254,22 @@ def draw_building(
     top = [(x, y - lift) for x, y in ground]
     outline = style.outline if style.outline_px else None
 
+    # Which walls face the viewer cannot be read off the vertex order: OSM
+    # footprints wind both ways (two thirds of Limerick's are clockwise), so a
+    # winding-based test details the back of most buildings. Instead compare each
+    # wall's outward normal — the one pointing away from the centroid — against
+    # the view direction. Screen y grows downward, so a normal with positive y
+    # points at the viewer.
+    centre_x = sum(p[0] for p in ground[:-1]) / (len(ground) - 1)
+    centre_y = sum(p[1] for p in ground[:-1]) / (len(ground) - 1)
+
+    def outward_normal(a, b):
+        nx, ny = (b[1] - a[1]), -(b[0] - a[0])
+        mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+        if (mx - centre_x) * nx + (my - centre_y) * ny < 0:
+            nx, ny = -nx, -ny
+        return nx, ny
+
     # Walls back to front, so nearer ones overwrite what they hide.
     order = sorted(range(len(ring) - 1),
                    key=lambda i: (ground[i][1] + ground[i + 1][1]) / 2)
@@ -261,10 +277,9 @@ def draw_building(
         a, b = ground[i], ground[i + 1]
         if math.dist(a, b) < 0.6:
             continue
-        # A wall running left to right on screen faces the viewer. Of those, the
-        # one also running downward catches the light.
-        visible = b[0] > a[0]
-        sunlit = (b[1] - a[1]) <= 0
+        nx, ny = outward_normal(a, b)
+        visible = ny > 0                 # normal points down-screen, at the viewer
+        sunlit = nx < 0                  # and left, into the light
         colour = facade.left if sunlit else facade.right
         draw.polygon([a, b, (b[0], b[1] - lift), (a[0], a[1] - lift)],
                      fill=colour, outline=outline)
@@ -313,6 +328,14 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
         for g in getattr(band, "geoms", [band]):
             area(g, style.water)
 
+    # Pavements first, then carriageways on top, so every street gets a kerb.
+    for road in sorted(layers.roads, key=lambda r: -r.width_m):
+        if road.tunnel or road.importance > 6:
+            continue
+        band = road.geom.buffer(road.width_m / 2 + style.pavement_m,
+                                cap_style=2, join_style=1)
+        for g in getattr(band, "geoms", [band]):
+            area(g, style.pavement)
     for road in sorted(layers.roads, key=lambda r: -r.width_m):
         if road.tunnel:
             continue

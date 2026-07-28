@@ -22,7 +22,9 @@ import math
 from dataclasses import replace
 
 from shapely.affinity import rotate as shapely_rotate
+from shapely.affinity import translate
 from shapely.geometry import LineString, Polygon
+from shapely.strtree import STRtree
 
 from .bearings import CLEAN_FOLD_DEG, rotated_bearing
 from .extract import Area, Building, Layers, Road
@@ -267,12 +269,59 @@ def snap_ring(
     return simple
 
 
+def widen_streets(
+    buildings: list[Building],
+    roads: list[Road],
+    rotation: float,
+    amount_m: float,
+    *,
+    max_distance_m: float = 30.0,
+) -> list[Building]:
+    """Push buildings back from the street they front.
+
+    In an isometric view a row of buildings hides the feet of whatever stands
+    behind it, and the cure most renderers reach for — stretching everything
+    vertically — distorts the buildings themselves. Widening the street instead
+    buys the same clearance and leaves the architecture honest, which is what
+    isometric city art has always quietly done.
+
+    The displacement is snapped to a crisp direction so buildings stay on the
+    grid the schematize stage just put them on. Perpendiculars of crisp
+    directions are themselves crisp, so fronting geometry stays square.
+    """
+    if amount_m <= 0:
+        return buildings
+
+    streets = [r for r in roads if r.importance <= 6]
+    if not streets:
+        return buildings
+    tree = STRtree([r.geom for r in streets])
+
+    out: list[Building] = []
+    for b in buildings:
+        centroid = b.geom.centroid
+        line = streets[tree.nearest(centroid)].geom
+        distance = line.distance(centroid)
+        if distance > max_distance_m or distance < 1e-6:
+            out.append(b)
+            continue
+        foot = line.interpolate(line.project(centroid))
+        dx, dy = centroid.x - foot.x, centroid.y - foot.y
+        if math.hypot(dx, dy) < 1e-6:
+            out.append(b)
+            continue
+        ux, uy = snap_direction(dx, dy, rotation)
+        out.append(replace(b, geom=translate(b.geom, ux * amount_m, uy * amount_m)))
+    return out
+
+
 def schematize(
     layers: Layers,
     rotation: float,
     *,
     road_simplify_m: float = 6.0,
     water_simplify_m: float = 30.0,
+    street_widen_m: float = 0.0,
     log=print,
 ) -> Layers:
     """Push every layer onto the isometric grid."""
@@ -282,10 +331,11 @@ def schematize(
     out.rail = snap_network(layers.rail, rotation, simplify_m=road_simplify_m)
     out.waterways = snap_network(layers.waterways, rotation, simplify_m=12.0)
 
-    out.buildings = [
-        replace(b, geom=rigid_snap_polygon(b.geom, rotation))
-        for b in layers.buildings
-    ]
+    out.buildings = widen_streets(
+        [replace(b, geom=rigid_snap_polygon(b.geom, rotation))
+         for b in layers.buildings],
+        out.roads, rotation, street_widen_m,
+    )
     out.water = [
         Area(a.osm_id,
              snap_ring(a.geom, rotation,

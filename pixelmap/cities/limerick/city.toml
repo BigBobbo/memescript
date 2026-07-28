@@ -53,11 +53,11 @@ rotation_source = "m2: bend-optimal family 32.75+90k, member with west on the ri
 
 [grid]
 # Ground cell size in metres. A cell renders as a 4x2 px rhombus.
-# Measured on screen at this cell size, an 8 m frontage spans ~45 px along an
-# iso diagonal and a 2-storey wall is ~70 px tall — about 3,100 px of facade,
-# roughly four times what 0.6 m gave. Canvas size follows from this and the
-# frame extents rather than being fixed, so coverage does not change.
-cell_m = 0.4
+# Dropped to hold the facade pixel budget once height exaggeration was removed:
+# true height halves a wall, so resolution has to make it back. At 0.3 m an 8 m
+# frontage spans ~60 px and a 2-storey wall ~43 px — about 2,550 px of facade,
+# against 3,150 at the stretched 0.4 m setting and 1,440 unstretched.
+cell_m = 0.3
 
 [print]
 # NOT BINDING while iterating on composition and scale — kept as the eventual
@@ -69,9 +69,11 @@ dpi       = 300
 [render]
 # Height is expressed as a multiple of true isometric rather than in pixels, so
 # it stays correct when the cell size changes. True is 2 px per cell of height.
-# 2.2 is what the cartoon study picked: Limerick is low-rise (83% two-storey) and
-# reads flat at true height, while 3.2 starts occluding the street network.
-height_exaggeration = 2.2
+# Kept at true isometric. Stretching buildings vertically buys clearance between
+# rows but distorts the architecture; widening the streets (see [schematize])
+# buys the same clearance honestly. At true height a 2-storey row needs only
+# 6.4 m of clear ground behind it, against 14.1 m at the 2.2 we tried.
+height_exaggeration = 1.0
 default_levels = 2             # empirical Limerick default (83% of tagged = 2)
 
 [frame]
@@ -98,3 +100,8 @@ exclude = ["Thomond Park"]
 # becomes a few long deliberate reaches rather than a snapped staircase.
 road_simplify_m  = 8.0
 water_simplify_m = 45.0
+
+# Buildings are pushed this far back from the street they front, widening every
+# street by twice this. Replaces height exaggeration as the way to keep facades
+# clear of the row in front — a long-standing liberty in isometric city art.
+street_widen_m = 3.5

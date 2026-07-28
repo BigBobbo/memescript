@@ -39,6 +39,10 @@ class Style:
     road_major: tuple[int, int, int]
     rail: tuple[int, int, int]
     outline: tuple[int, int, int]
+    #: Footpath band drawn either side of the carriageway. With the streets
+    #: widened, this is what makes the extra ground read as pavement.
+    pavement: tuple[int, int, int] = (222, 219, 208)
+    pavement_m: float = 3.0
     #: Glazing, and the fascia board above a shopfront.
     window: tuple[int, int, int] = (86, 104, 118)
     window_lit: tuple[int, int, int] = (236, 206, 138)
@@ -63,8 +67,10 @@ LIMERICK_DAY = Style(
     green_dark=(96, 136, 74),
     water=(74, 130, 152),
     water_light=(96, 154, 174),
-    road=(214, 210, 196),
-    road_major=(228, 222, 204),
+    road=(196, 192, 182),
+    road_major=(206, 202, 190),
+    pavement=(224, 221, 210),
+    pavement_m=3.2,
     rail=(150, 146, 138),
     outline=(46, 44, 52),
     window=(92, 112, 126),

@@ -201,7 +201,8 @@ def cmd_frame(args) -> int:
         before = crisp_share(layers.roads, city.rotation_deg)
         layers = schematize(layers, city.rotation_deg,
                             road_simplify_m=city.config["schematize"]["road_simplify_m"],
-                            water_simplify_m=city.config["schematize"]["water_simplify_m"])
+                            water_simplify_m=city.config["schematize"]["water_simplify_m"],
+                            street_widen_m=city.config["schematize"].get("street_widen_m", 0.0))
         after = crisp_share(layers.roads, city.rotation_deg)
         print(f"  road length on a crisp direction: {before*100:.1f}% -> {after*100:.1f}%")
 
