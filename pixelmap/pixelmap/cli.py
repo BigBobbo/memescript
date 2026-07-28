@@ -30,7 +30,7 @@ def _extract_cached(city: City, *, force: bool = False):
             print(f"  layers: cached ({layers.summary()})")
             return layers
 
-    layers = extract(raw_dir, city.crs)
+    layers = extract(raw_dir, city.crs, bbox=city.bbox)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     with cache_path.open("wb") as fh:
         pickle.dump(layers, fh, protocol=pickle.HIGHEST_PROTOCOL)

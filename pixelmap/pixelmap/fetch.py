@@ -61,6 +61,11 @@ LAYERS: tuple[Layer, ...] = (
             'relation["waterway"="riverbank"]',
         ),
     ),
+    # Tidal water is not mapped as a polygon. Below Limerick the Shannon is an
+    # estuary, so OSM records it as coastline ways with land on the left and
+    # water on the right, and the water area is left implied. Without this the
+    # river simply stops partway down the frame.
+    Layer("coastline", ('way["natural"="coastline"]',)),
     Layer(
         "roads",
         (

@@ -18,6 +18,7 @@ from pathlib import Path
 
 from pyproj import Transformer
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
+from shapely.ops import polygonize
 from shapely.ops import transform as shapely_transform
 from shapely.ops import unary_union
 
@@ -244,7 +245,7 @@ def _load(path: Path) -> list[dict]:
     return []
 
 
-def extract(raw_dir: Path, crs: str, *, log=print) -> Layers:
+def extract(raw_dir: Path, crs: str, *, bbox=None, log=print) -> Layers:
     """Turn cached Overpass JSON into projected, typed layers."""
     transformer = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
     project = lambda geom: shapely_transform(  # noqa: E731
@@ -354,6 +355,25 @@ def extract(raw_dir: Path, crs: str, *, log=print) -> Layers:
                     Area(f"{element['type']}/{element['id']}", project(poly), kind, tags.get("name"))
                 )
 
+    # Tidal water: derive the area the coastline implies, clipped to the data
+    # extent, and treat it as ordinary water from here on.
+    coast_lines = []
+    for element in _load(raw_dir / "coastline.json"):
+        pts = _coords(element)
+        if len(pts) >= 2:
+            coast_lines.append(project(LineString(pts)))
+    if coast_lines and bbox is not None:
+        south, west, north, east = bbox
+        (x0, y0), (x1, y1) = (
+            transformer.transform(west, south), transformer.transform(east, north)
+        )
+        extent = Polygon([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+        derived = water_from_coastline(
+            coast_lines, extent, [a.geom for a in layers.water], log=log
+        )
+        for poly in derived:
+            layers.water.append(Area("coastline", poly, "coastline", None))
+
     for element in _load(raw_dir / "poi.json"):
         tags = element.get("tags", {})
         if element["type"] == "node":
@@ -374,6 +394,82 @@ def extract(raw_dir: Path, crs: str, *, log=print) -> Layers:
 
     log(f"  extracted: {layers.summary()}")
     return layers
+
+
+def water_from_coastline(
+    coastline: list[LineString],
+    extent: Polygon,
+    existing: list[Polygon] | None = None,
+    *,
+    log=print,
+) -> list[Polygon]:
+    """Turn coastline ways into the water area they imply.
+
+    Tidal water carries no polygon in OSM. Instead the shore is drawn as
+    `natural=coastline` ways with **land on the left and water on the right** of
+    the way's direction, and every renderer is expected to work the area out for
+    itself. Below Limerick the Shannon is an estuary, so without this the river
+    stops dead partway down the frame.
+
+    The coastline is closed against the data extent, the result cut into
+    regions, and each region tested against the nearest shore segment to see
+    which side it lies on.
+    """
+    if not coastline:
+        return []
+
+    clipped = []
+    for line in coastline:
+        piece = line.intersection(extent)
+        for geom in getattr(piece, "geoms", [piece]):
+            if isinstance(geom, LineString) and geom.length > 0:
+                clipped.append(geom)
+    if not clipped:
+        return []
+
+    # Coastline stops where the river stops being tidal — at Limerick that is
+    # just above Sarsfield Bridge — so it has a loose end inside the data and
+    # cannot enclose anything on its own. Closing it against the already-mapped
+    # river polygons gives the estuary a boundary at both ends.
+    edges = [*clipped, extent.boundary]
+    for poly in existing or []:
+        piece = poly.intersection(extent)
+        if not piece.is_empty:
+            edges.append(piece.boundary)
+
+    regions = list(polygonize(unary_union(edges)))
+    shore = unary_union(clipped)
+
+    water: list[Polygon] = []
+    for region in regions:
+        # Only regions that actually meet the shore can be judged by its side;
+        # anything else is already covered by the mapped water polygons.
+        if region.distance(shore) > 1.0:
+            continue
+        probe = region.representative_point()
+        # Nearest point on the shore, and the segment it sits on.
+        distance = shore.project(probe) if isinstance(shore, LineString) else None
+        segment = None
+        if isinstance(shore, LineString):
+            segment = shore
+        else:
+            segment = min(shore.geoms, key=lambda g: g.distance(probe))
+            distance = segment.project(probe)
+        step = min(max(segment.length * 0.001, 0.5), 5.0)
+        a = segment.interpolate(max(0.0, distance - step))
+        b = segment.interpolate(min(segment.length, distance + step))
+        dx, dy = b.x - a.x, b.y - a.y
+        vx, vy = probe.x - a.x, probe.y - a.y
+        if dx == 0 and dy == 0:
+            continue
+        # Negative cross product puts the point to the right of travel: water.
+        if dx * vy - dy * vx < 0:
+            water.append(region)
+
+    total = sum(p.area for p in water)
+    log(f"  coastline: {len(clipped)} ways -> {len(water)} water regions "
+        f"({total / 1e4:.0f} ha)")
+    return water
 
 
 def bounds(layers: Layers) -> tuple[float, float, float, float]:

@@ -22,7 +22,8 @@ import math
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point, Polygon, box
+from shapely.ops import unary_union
 
 from .extract import Building, Layers, Road
 from .iso import Camera
@@ -445,13 +446,32 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
         area(a.geom, style.urban)
     for a in layers.green:
         area(a.geom, style.green_dark if a.kind in ("wood", "forest") else style.green)
-    water_polys: list[Polygon] = []
-    for a in layers.water:
-        water_polys.append(a.geom)
+    # Dissolve the water into one shape before drawing. The estuary derived from
+    # coastline abuts the mapped river at the tidal limit, and two polygons
+    # sharing a boundary would each grow a quay wall along it — a wall running
+    # down the middle of the river. Clipping to the view first also keeps the
+    # union cheap, since the Shannon polygons run for kilometres past the frame.
+    across, deep = camera.ground_extent_m()
+    reach = max(across, deep)
+    view = box(camera.origin_x - reach, camera.origin_y - reach,
+               camera.origin_x + reach, camera.origin_y + reach)
+
+    parts: list[Polygon] = [a.geom for a in layers.water]
     for w in layers.waterways:
         band = w.geom.buffer(w.width_m / 2, cap_style=2)
-        water_polys.extend(g for g in getattr(band, "geoms", [band])
-                           if isinstance(g, Polygon) and not g.is_empty)
+        parts.extend(g for g in getattr(band, "geoms", [band])
+                     if isinstance(g, Polygon) and not g.is_empty)
+
+    clipped = []
+    for part in parts:
+        if not part.intersects(view):
+            continue
+        piece = part.intersection(view)
+        clipped.extend(g for g in getattr(piece, "geoms", [piece])
+                       if isinstance(g, Polygon) and not g.is_empty)
+    merged = unary_union(clipped) if clipped else None
+    water_polys = [g for g in getattr(merged, "geoms", [merged] if merged else [])
+                   if isinstance(g, Polygon) and not g.is_empty]
     stats.quay_walls = draw_water(draw, camera, water_polys, style, seed)
     draw_ripples(draw, camera, water_polys, style, seed)
 
