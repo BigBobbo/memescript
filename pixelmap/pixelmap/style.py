@@ -39,7 +39,14 @@ class Style:
     road_major: tuple[int, int, int]
     rail: tuple[int, int, int]
     outline: tuple[int, int, int]
+    #: Glazing, and the fascia board above a shopfront.
+    window: tuple[int, int, int] = (86, 104, 118)
+    window_lit: tuple[int, int, int] = (236, 206, 138)
+    fascia: tuple[int, int, int] = (78, 72, 82)
     facades: tuple[Facade, ...] = field(default=())
+    #: Roof colour is drawn independently of wall colour: in a real city the two
+    #: barely correlate, and tying them made every red building grow a red roof.
+    roofs: tuple[tuple[int, int, int], ...] = field(default=())
     landmark: Facade | None = None
     #: Weight of the outline in pixels. 0 disables it.
     outline_px: int = 1
@@ -49,8 +56,8 @@ class Style:
 # Georgian red brick, painted shopfronts, slate roofs, a steely tidal Shannon.
 LIMERICK_DAY = Style(
     name="limerick-day",
-    sky=(214, 226, 231),
-    land=(196, 198, 186),
+    sky=(206, 222, 230),
+    land=(202, 204, 190),
     urban=(186, 188, 176),
     green=(126, 166, 98),
     green_dark=(96, 136, 74),
@@ -60,22 +67,84 @@ LIMERICK_DAY = Style(
     road_major=(228, 222, 204),
     rail=(150, 146, 138),
     outline=(46, 44, 52),
+    window=(92, 112, 126),
+    window_lit=(238, 208, 140),
+    fascia=(74, 68, 78),
+    # Seen from above, the roof is the biggest surface a building shows, so roof
+    # colour carries the render. Keeping every roof the same slate turned the
+    # whole city monotone; these vary across slate, weathered lead, warm grey
+    # and clay tile while staying a believable Irish roofscape.
     facades=(
         # Limestone and painted render — the everyday city.
-        Facade(roof=(108, 112, 124), left=(226, 222, 210), right=(168, 166, 158)),
-        Facade(roof=(102, 106, 118), left=(238, 232, 214), right=(180, 174, 160)),
-        # Georgian red brick.
-        Facade(roof=(96, 100, 112), left=(196, 108, 84), right=(146, 76, 60)),
-        Facade(roof=(92, 96, 108), left=(178, 96, 74), right=(132, 68, 54)),
+        Facade(roof=(126, 134, 150), left=(232, 228, 216), right=(172, 170, 162)),
+        Facade(roof=(112, 122, 136), left=(242, 236, 220), right=(184, 178, 164)),
+        # Georgian red brick under slate.
+        Facade(roof=(120, 126, 140), left=(198, 110, 86), right=(148, 78, 62)),
+        Facade(roof=(146, 96, 78),   left=(182, 100, 78), right=(136, 72, 56)),
         # Painted shopfronts — the Irish main-street colours.
-        Facade(roof=(104, 108, 120), left=(214, 168, 92), right=(160, 122, 66)),
-        Facade(roof=(100, 104, 116), left=(122, 152, 132), right=(88, 112, 96)),
-        Facade(roof=(104, 108, 120), left=(178, 190, 198), right=(132, 142, 150)),
+        Facade(roof=(134, 140, 148), left=(218, 172, 94),  right=(164, 126, 68)),
+        Facade(roof=(116, 130, 126), left=(126, 156, 136), right=(92, 116, 100)),
+        Facade(roof=(140, 146, 158), left=(182, 194, 202), right=(136, 146, 154)),
         # Warm cream, common on the quays.
-        Facade(roof=(98, 102, 114), left=(232, 214, 180), right=(176, 160, 132)),
+        Facade(roof=(150, 142, 132), left=(236, 218, 184), right=(180, 164, 136)),
+        # Clay tile, the newer estates.
+        Facade(roof=(158, 104, 82),  left=(226, 214, 196), right=(170, 162, 148)),
+    ),
+    roofs=(
+        (118, 128, 144),   # blue slate, the Georgian default
+        (108, 118, 132),
+        (128, 136, 148),
+        (96, 106, 120),    # weathered lead
+        (146, 150, 156),   # light grey slate
+        (150, 100, 80),    # clay tile
+        (134, 88, 70),
+        (112, 124, 118),   # mossy slate
+        (140, 134, 124),   # warm grey
     ),
     landmark=Facade(roof=(120, 116, 108), left=(224, 214, 190), right=(170, 160, 140)),
 )
+
+#: OSM roof:colour values seen in Limerick, plus the usual CSS names.
+_NAMED = {
+    "black": (58, 58, 62), "grey": (128, 128, 130), "gray": (128, 128, 130),
+    "darkgrey": (86, 86, 90), "dark_grey": (86, 86, 90), "lightgrey": (168, 168, 170),
+    "white": (232, 232, 228), "brown": (132, 92, 68), "red": (156, 78, 62),
+    "darkred": (124, 60, 48), "green": (96, 122, 88), "darkgreen": (74, 96, 68),
+    "blue": (92, 112, 148), "slate": (112, 122, 136), "silver": (176, 178, 180),
+    "beige": (208, 194, 168), "orange": (188, 118, 66), "terracotta": (170, 100, 74),
+}
+
+
+def parse_colour(value: str | None) -> tuple[int, int, int] | None:
+    """Read an OSM colour tag, muted toward the palette so it still fits in."""
+    if not value:
+        return None
+    text = value.strip().lower()
+    if text.startswith("#"):
+        hexpart = text[1:]
+        if len(hexpart) == 3:
+            hexpart = "".join(c * 2 for c in hexpart)
+        if len(hexpart) == 6:
+            try:
+                raw = tuple(int(hexpart[i:i + 2], 16) for i in (0, 2, 4))
+            except ValueError:
+                return None
+        else:
+            return None
+    elif text in _NAMED:
+        raw = _NAMED[text]
+    else:
+        return None
+    # Pull tagged colours a little toward mid grey so one loud roof cannot
+    # break the palette the rest of the render is built on.
+    return tuple(int(c * 0.82 + 128 * 0.18) for c in raw)
+
+
+def roof_for(style: Style, osm_id: str, seed: int) -> tuple[int, int, int]:
+    if not style.roofs:
+        raise ValueError(f"style {style.name!r} has no roof colours")
+    digest = hashlib.blake2b(f"roof:{seed}:{osm_id}".encode(), digest_size=4).digest()
+    return style.roofs[int.from_bytes(digest, "big") % len(style.roofs)]
 
 
 def facade_for(style: Style, osm_id: str, seed: int = 0) -> Facade:

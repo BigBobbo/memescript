@@ -4,11 +4,12 @@ Turns OpenStreetMap data into a pixel-art isometric city map, built for print
 and framing. Limerick first; a second city is meant to be a config folder, not a
 second project.
 
-**Status:** M2 in progress. Data pipeline, orientation analysis and the
-schematize stage are built: every street, bank and footprint is snapped onto the
-eight directions that render as crisp isometric lines (70% of road length, up
-from 11%). Framed with the Shannon low and west on the right, at Pixorama-scale
-detail (an 8 m frontage is ~30 px of wall, a 2-storey house ~47 px tall). Styling is next. See [`PLAN.md`](PLAN.md) for the full design and
+**Status:** M2 complete. Stages 0-2 and 5 are built — fetch, extract, schematize
+and a painted renderer with pitched roofs, windowed facades and shopfronts.
+Streets, banks and footprints are snapped onto the eight directions that render
+as crisp isometric lines (70% of road length, up from 11%). Framed with the
+Shannon low and west on the right, at Pixorama-scale detail (an 8 m frontage is
+~30 px of wall, a 2-storey house ~47 px tall). Landmarks are next. See [`PLAN.md`](PLAN.md) for the full design and
 [`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and locked.
 
 ## Setup
@@ -33,7 +34,8 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |
 | `greybox --study` | Six framing variants as a contact sheet |
 | `greybox --orientations` | All four quarter turns compared |
-| `frame` | Render the configured frame — the composition of record. `--cell` trades detail for speed, `--raw` skips snapping |
+| `frame` | Render the configured frame — the composition of record. `--cell` trades detail for speed, `--grey` for grey-box, `--raw` skips snapping |
+| `frontages` | Rank facades by visible wall area; writes `facades.md` |
 
 Renders land in `cities/<city>/out/` (gitignored); evidence kept for each gate
 lives in `cities/<city>/gates/`.
@@ -54,9 +56,10 @@ The pipeline never branches on city name.
 
 `fetch` → `extract` → `schematize` → `discretize` → `decorate` → `render` → `compose`
 
-Stages 0–2 are built. `frame` short-circuits from schematize to a throwaway
-grey-box renderer so composition and geometry can be judged before the real
-renderer exists; `--raw` skips schematize to show true OSM geometry.
+Stages 0–2 and 5 are built. `discretize` and `decorate` are not yet needed —
+the renderer draws from schematized vector geometry directly. `--grey` falls
+back to the grey-box renderer for judging composition; `--raw` skips schematize
+to show true OSM geometry.
 
 ## Attribution
 

@@ -70,6 +70,15 @@ class Building:
     levels_tagged: bool
     kind: str
     name: str | None
+    #: Roof tagging is unusually good in Limerick — 30% of buildings carry a
+    #: roof:shape — and the roof is the largest surface an isometric view shows.
+    roof_shape: str | None = None
+    roof_orientation: str | None = None
+    roof_colour: str | None = None
+    #: A shop or amenity means a shopfront on the ground floor.
+    shop: str | None = None
+    housenumber: str | None = None
+    street: str | None = None
 
 
 @dataclass
@@ -296,6 +305,12 @@ def extract(raw_dir: Path, crs: str, *, log=print) -> Layers:
                     levels_tagged=tagged,
                     kind=str(tags.get("building", "yes")),
                     name=tags.get("name"),
+                    roof_shape=tags.get("roof:shape"),
+                    roof_orientation=tags.get("roof:orientation"),
+                    roof_colour=tags.get("roof:colour"),
+                    shop=tags.get("shop") or tags.get("amenity"),
+                    housenumber=tags.get("addr:housenumber"),
+                    street=tags.get("addr:street"),
                 )
             )
 

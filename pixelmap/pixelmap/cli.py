@@ -205,7 +205,19 @@ def cmd_frame(args) -> int:
         after = crisp_share(layers.roads, city.rotation_deg)
         print(f"  road length on a crisp direction: {before*100:.1f}% -> {after*100:.1f}%")
 
-    img, stats = render(layers, camera)
+    if args.grey:
+        img, grey_stats = render(layers, camera)
+        drawn = grey_stats.buildings_drawn
+    else:
+        from .paint import render as paint_render
+        from .style import STYLES
+
+        img, stats = paint_render(layers, camera, STYLES[args.style], city.seed)
+        drawn = stats.buildings
+        print(f"  painted {stats.buildings} buildings · "
+              f"{stats.roofs_tagged} pitched roofs · "
+              f"{stats.facades_detailed} detailed facades · "
+              f"{stats.shopfronts} shopfronts")
     path = save_preview(img, city.out / f"{args.slug}.png")
 
     preview = img.copy()
@@ -227,7 +239,7 @@ def cmd_frame(args) -> int:
     across, deep = camera.ground_extent_m()
     print(f"{camera.width_px}x{camera.height_px} px ({camera.width_px/camera.height_px:.1f}:1) "
           f"· rot {camera.rotation_deg:.2f} · cell {cell_m} m")
-    print(f"  ground {across:.0f} x {deep:.0f} m · {stats.buildings_drawn} buildings")
+    print(f"  ground {across:.0f} x {deep:.0f} m · {drawn} buildings")
     print(f"  8 m frontage {8/cell_m*4:.0f} px · storey {camera.storey_px:.1f} px "
           f"(true isometric {true_storey_px(cell_m):.1f})")
     print(f"  wrote {path}")
@@ -397,6 +409,9 @@ def main(argv: list[str] | None = None) -> int:
     p_frame.add_argument("--cell", type=float, default=None,
                          help="override cell size in metres (smaller = more detail)")
     p_frame.add_argument("--slug", default="frame")
+    p_frame.add_argument("--grey", action="store_true",
+                         help="grey-box instead of the painted style")
+    p_frame.add_argument("--style", default="limerick-day")
     p_frame.add_argument("--raw", action="store_true",
                          help="skip schematize and draw true OSM geometry")
     p_frame.add_argument("--annotate", action="store_true")
