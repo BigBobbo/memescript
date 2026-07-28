@@ -19,6 +19,7 @@ from pathlib import Path
 from pyproj import Transformer
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import polygonize
+from shapely.strtree import STRtree
 from shapely.ops import transform as shapely_transform
 from shapely.ops import unary_union
 
@@ -38,6 +39,10 @@ ROAD_WIDTH_M = {
 }
 for _base in ("motorway", "trunk", "primary", "secondary", "tertiary"):
     ROAD_WIDTH_M[f"{_base}_link"] = ROAD_WIDTH_M[_base] * 0.7
+
+#: A derived water region holding more buildings than this is land that the
+#: shore test got backwards, not an estuary with a lot of boathouses.
+MAX_BUILDINGS_IN_WATER = 12
 
 #: Roads at or above this class survive into the schematic street skeleton.
 ROAD_IMPORTANCE = {
@@ -369,7 +374,8 @@ def extract(raw_dir: Path, crs: str, *, bbox=None, log=print) -> Layers:
         )
         extent = Polygon([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
         derived = water_from_coastline(
-            coast_lines, extent, [a.geom for a in layers.water], log=log
+            coast_lines, extent, [a.geom for a in layers.water],
+            [b.geom for b in layers.buildings], log=log,
         )
         for poly in derived:
             layers.water.append(Area("coastline", poly, "coastline", None))
@@ -400,6 +406,7 @@ def water_from_coastline(
     coastline: list[LineString],
     extent: Polygon,
     existing: list[Polygon] | None = None,
+    buildings: list[Polygon] | None = None,
     *,
     log=print,
 ) -> list[Polygon]:
@@ -438,33 +445,54 @@ def water_from_coastline(
             edges.append(piece.boundary)
 
     regions = list(polygonize(unary_union(edges)))
-    shore = unary_union(clipped)
+    if not regions:
+        return []
+    index = STRtree(regions)
 
-    water: list[Polygon] = []
-    for region in regions:
-        # Only regions that actually meet the shore can be judged by its side;
-        # anything else is already covered by the mapped water polygons.
-        if region.distance(shore) > 1.0:
+    # Probe outward from the shore rather than inward from each region. Asking
+    # "which side of the nearest shore segment is this region's centre on?" fails
+    # whenever that centre lies far from the shore — the nearest segment can
+    # belong to a completely different stretch of coast, which is what put
+    # King's Island under water. Stepping a few metres to the right of the
+    # coastline lands unambiguously in the water, whatever shape the region is.
+    wet: set[int] = set()
+    for line in clipped:
+        length = line.length
+        if length <= 0:
             continue
-        probe = region.representative_point()
-        # Nearest point on the shore, and the segment it sits on.
-        distance = shore.project(probe) if isinstance(shore, LineString) else None
-        segment = None
-        if isinstance(shore, LineString):
-            segment = shore
-        else:
-            segment = min(shore.geoms, key=lambda g: g.distance(probe))
-            distance = segment.project(probe)
-        step = min(max(segment.length * 0.001, 0.5), 5.0)
-        a = segment.interpolate(max(0.0, distance - step))
-        b = segment.interpolate(min(segment.length, distance + step))
-        dx, dy = b.x - a.x, b.y - a.y
-        vx, vy = probe.x - a.x, probe.y - a.y
-        if dx == 0 and dy == 0:
-            continue
-        # Negative cross product puts the point to the right of travel: water.
-        if dx * vy - dy * vx < 0:
-            water.append(region)
+        samples = max(2, int(length // 20))
+        for i in range(samples + 1):
+            along = length * i / samples
+            a = line.interpolate(max(0.0, along - 1.0))
+            b = line.interpolate(min(length, along + 1.0))
+            dx, dy = b.x - a.x, b.y - a.y
+            norm = math.hypot(dx, dy)
+            if norm < 1e-9:
+                continue
+            # Right of travel is (dy, -dx); by the coastline convention, water.
+            probe = Point(a.x + dy / norm * 4.0, a.y - dx / norm * 4.0)
+            for idx in index.query(probe):
+                if regions[idx].contains(probe):
+                    wet.add(int(idx))
+                    break
+
+    water = [regions[i] for i in sorted(wet)]
+
+    # A stretch of estuary holds no houses. If a region does, the shore test has
+    # picked the landward side and the whole neighbourhood would be drawn
+    # submerged, so drop it rather than trust the geometry.
+    if buildings:
+        homes = STRtree([b.centroid for b in buildings])
+        kept = []
+        for region in water:
+            inside = sum(1 for i in homes.query(region)
+                         if region.contains(Point(buildings[int(i)].centroid)))
+            if inside > MAX_BUILDINGS_IN_WATER:
+                log(f"  coastline: rejected a {region.area / 1e4:.0f} ha region "
+                    f"holding {inside} buildings — it is land, not water")
+                continue
+            kept.append(region)
+        water = kept
 
     total = sum(p.area for p in water)
     log(f"  coastline: {len(clipped)} ways -> {len(water)} water regions "

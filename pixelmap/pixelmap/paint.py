@@ -245,7 +245,37 @@ def _metre_px(camera: Camera) -> float:
     return camera.storey_px / 3.2
 
 
+def fill_areas(
+    img: Image.Image,
+    camera: Camera,
+    polygons: list[Polygon],
+    colour: tuple[int, int, int],
+) -> None:
+    """Fill polygons, honouring their holes.
+
+    Drawing only the exterior ring silently fills every hole — which put
+    King's Island, an island in the Shannon, under water. Pillow cannot fill a
+    ring with holes directly, so the layer is built as a mask: all exteriors,
+    then all interiors punched back out, then the colour pasted through it.
+    """
+    if not polygons:
+        return
+    mask = Image.new("1", img.size, 0)
+    stencil = ImageDraw.Draw(mask)
+    for poly in polygons:
+        ring = [camera.ground(x, y) for x, y in poly.exterior.coords]
+        if len(ring) >= 3:
+            stencil.polygon(ring, fill=1)
+    for poly in polygons:
+        for interior in poly.interiors:
+            hole = [camera.ground(x, y) for x, y in interior.coords]
+            if len(hole) >= 3:
+                stencil.polygon(hole, fill=0)
+    img.paste(colour, mask=mask)
+
+
 def draw_water(
+    img: Image.Image,
     draw: ImageDraw.ImageDraw,
     camera: Camera,
     polygons: list[Polygon],
@@ -262,15 +292,18 @@ def draw_water(
     """
     wall_px = style.quay_m * _metre_px(camera)
     walls = 0
+    fill_areas(img, camera, polygons, style.water)
 
+    # Walls on both the banks and any island shore. For the outer bank we see
+    # the far wall's face; for an island the near shore is the one turned
+    # toward us, so the test flips.
+    rings: list[tuple[list[tuple[float, float]], bool]] = []
     for poly in polygons:
-        ring = [camera.ground(x, y) for x, y in poly.exterior.coords]
-        if len(ring) < 4:
-            continue
-        draw.polygon(ring, fill=style.water)
+        rings.append(([camera.ground(x, y) for x, y in poly.exterior.coords[:-1]], False))
+        for interior in poly.interiors:
+            rings.append(([camera.ground(x, y) for x, y in interior.coords[:-1]], True))
 
-    for poly in polygons:
-        ring = [camera.ground(x, y) for x, y in poly.exterior.coords[:-1]]
+    for ring, is_island in rings:
         n = len(ring)
         if n < 3:
             continue
@@ -282,8 +315,8 @@ def draw_water(
             mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
             if (mx - cx) * nx + (my - cy) * ny < 0:
                 nx, ny = -nx, -ny
-            if ny >= 0:
-                continue  # near bank: we look over its coping, not at its face
+            if (ny <= 0) if is_island else (ny >= 0):
+                continue
             draw.polygon([a, b, (b[0], b[1] + wall_px), (a[0], a[1] + wall_px)],
                          fill=style.quay)
             draw.line([a, b], fill=style.coping, width=max(1, int(wall_px * 0.22)))
@@ -313,7 +346,7 @@ def draw_ripples(
             x = minx + (row % 2) * step * 0.5
             while x < maxx:
                 if _rng(f"{index}:{int(x)}:{int(y)}", seed, "ripple") < 0.34 \
-                        and poly.contains(Point(x, y)):
+                        and poly.contains(Point(x, y)):   # contains excludes holes
                     sx, sy = camera.ground(x, y)
                     draw.polygon([(sx, sy), (sx + 4, sy + 2), (sx + 8, sy),
                                   (sx + 4, sy - 2)], fill=style.ripple)
@@ -442,10 +475,11 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
         if len(pts) >= 3:
             draw.polygon(pts, fill=colour)
 
-    for a in layers.urban:
-        area(a.geom, style.urban)
-    for a in layers.green:
-        area(a.geom, style.green_dark if a.kind in ("wood", "forest") else style.green)
+    fill_areas(img, camera, [a.geom for a in layers.urban], style.urban)
+    fill_areas(img, camera, [a.geom for a in layers.green
+                             if a.kind not in ("wood", "forest")], style.green)
+    fill_areas(img, camera, [a.geom for a in layers.green
+                             if a.kind in ("wood", "forest")], style.green_dark)
     # Dissolve the water into one shape before drawing. The estuary derived from
     # coastline abuts the mapped river at the tidal limit, and two polygons
     # sharing a boundary would each grow a quay wall along it — a wall running
@@ -472,7 +506,7 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
     merged = unary_union(clipped) if clipped else None
     water_polys = [g for g in getattr(merged, "geoms", [merged] if merged else [])
                    if isinstance(g, Polygon) and not g.is_empty]
-    stats.quay_walls = draw_water(draw, camera, water_polys, style, seed)
+    stats.quay_walls = draw_water(img, draw, camera, water_polys, style, seed)
     draw_ripples(draw, camera, water_polys, style, seed)
 
     # Pavements first, then carriageways on top, so every street gets a kerb.
