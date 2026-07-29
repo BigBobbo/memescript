@@ -22,6 +22,11 @@ from dataclasses import dataclass
 CELL_W = 2.0   # half-width: a cell spans 4 px
 CELL_H = 1.0   # half-height: a cell spans 2 px
 
+#: Metres per storey. Irish terraces run a little under this; it is the divisor
+#: used when a building carries a `height` tag instead of `building:levels`, and
+#: the unit every height in the render is quoted in.
+STOREY_M = 3.2
+
 
 @dataclass(frozen=True)
 class Camera:

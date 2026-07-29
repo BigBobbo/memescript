@@ -17,16 +17,19 @@ crisp when it is nearest-neighbour upscaled for print.
 
 from __future__ import annotations
 
-import hashlib
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from PIL import Image, ImageDraw
 from shapely.geometry import Point, Polygon, box
 from shapely.ops import unary_union
 
+from .draw3d import metre_px as _metre_px
+from .draw3d import outward_normal_fn, rng as _rng, shade as _shade, wall_rect
 from .extract import Building, Layers, Road
 from .iso import CELL_W, Camera
+from .landmarks import POINT_RECIPES, Model, masses_for, square
+from .monuments import draw_landmark
 from .style import Facade, Style, facade_for, parse_colour, roof_for
 
 #: A wall narrower or shorter than this has no room for openings; drawing them
@@ -53,26 +56,11 @@ class PaintStats:
     shopfronts: int = 0
     quay_walls: int = 0
     bridges: int = 0
-
-
-def _rng(osm_id: str, seed: int, salt: str = "") -> float:
-    digest = hashlib.blake2b(f"{seed}:{osm_id}:{salt}".encode(), digest_size=8).digest()
-    return int.from_bytes(digest, "big") / 2 ** 64
-
-
-def _shade(colour: tuple[int, int, int], factor: float) -> tuple[int, int, int]:
-    return tuple(max(0, min(255, int(c * factor))) for c in colour)
-
-
-def _wall_point(a, b, lift, u, v):
-    """Facade space to screen. u runs along the wall, v from ground to eaves."""
-    return (a[0] + (b[0] - a[0]) * u,
-            a[1] + (b[1] - a[1]) * u - lift * v)
-
-
-def _wall_rect(a, b, lift, u0, u1, v0, v1):
-    return [_wall_point(a, b, lift, u0, v0), _wall_point(a, b, lift, u1, v0),
-            _wall_point(a, b, lift, u1, v1), _wall_point(a, b, lift, u0, v1)]
+    landmarks: int = 0
+    landmark_masses: int = 0
+    #: Which models actually made it onto the canvas — a landmark that is
+    #: configured but out of frame should say so rather than vanish quietly.
+    landmarks_drawn: set = field(default_factory=set)
 
 
 def _draw_facade(
@@ -116,9 +104,9 @@ def _draw_facade(
 
         if ground_floor and has_shop:
             # One continuous glazed band with a fascia above it.
-            draw.polygon(_wall_rect(a, b, lift, 0.06, 0.94, 0.06, storey_v * 0.62),
+            draw.polygon(wall_rect(a, b, lift, 0.06, 0.94, 0.06, storey_v * 0.62),
                          fill=glass)
-            draw.polygon(_wall_rect(a, b, lift, 0.04, 0.96,
+            draw.polygon(wall_rect(a, b, lift, 0.04, 0.96,
                                     storey_v * 0.62, storey_v * 0.80),
                          fill=style.fascia)
             continue
@@ -128,9 +116,9 @@ def _draw_facade(
             u0, u1 = u_mid - (0.5 / columns) + inset, u_mid + (0.5 / columns) - inset
             if ground_floor and c == columns // 2 and not has_shop:
                 # Door: taller, reaching the pavement.
-                draw.polygon(_wall_rect(a, b, lift, u0, u1, 0.04, v1), fill=trim)
+                draw.polygon(wall_rect(a, b, lift, u0, u1, 0.04, v1), fill=trim)
                 continue
-            draw.polygon(_wall_rect(a, b, lift, u0, u1, v0, v1), fill=glass)
+            draw.polygon(wall_rect(a, b, lift, u0, u1, v0, v1), fill=glass)
 
     return True, has_shop
 
@@ -245,11 +233,6 @@ def _draw_roof(
     for face, lit in sorted(faces, key=lambda f: sum(q[1] for q in f[0]) / len(f[0])):
         draw.polygon(face, fill=_shade(roof_colour, lit), outline=outline)
     return True
-
-
-def _metre_px(camera: Camera) -> float:
-    """Screen pixels per metre of height."""
-    return camera.storey_px / 3.2
 
 
 def fill_areas(
@@ -419,21 +402,11 @@ def draw_building(
     top = [(x, y - lift) for x, y in ground]
     outline = style.outline if style.outline_px else None
 
-    # Which walls face the viewer cannot be read off the vertex order: OSM
-    # footprints wind both ways (two thirds of Limerick's are clockwise), so a
-    # winding-based test details the back of most buildings. Instead compare each
-    # wall's outward normal — the one pointing away from the centroid — against
-    # the view direction. Screen y grows downward, so a normal with positive y
-    # points at the viewer.
-    centre_x = sum(p[0] for p in ground[:-1]) / (len(ground) - 1)
-    centre_y = sum(p[1] for p in ground[:-1]) / (len(ground) - 1)
-
-    def outward_normal(a, b):
-        nx, ny = (b[1] - a[1]), -(b[0] - a[0])
-        mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
-        if (mx - centre_x) * nx + (my - centre_y) * ny < 0:
-            nx, ny = -nx, -ny
-        return nx, ny
+    # Which walls face the viewer cannot be read off the vertex order — OSM
+    # footprints wind both ways — so facing comes from each wall's outward
+    # normal. Screen y grows downward, so a normal with positive y points at the
+    # viewer, and negative x points into the light.
+    outward_normal = outward_normal_fn(ground)
 
     # Walls back to front, so nearer ones overwrite what they hide.
     order = sorted(range(len(ring) - 1),
@@ -461,7 +434,9 @@ def draw_building(
 
 
 def render(layers: Layers, camera: Camera, style: Style, seed: int,
-           *, min_area_m2: float = 10.0) -> tuple[Image.Image, PaintStats]:
+           *, min_area_m2: float = 10.0,
+           models: dict[str, Model] | None = None,
+           superseded: set[str] | None = None) -> tuple[Image.Image, PaintStats]:
     """Paint the whole scene."""
     img = Image.new("RGB", (camera.width_px, camera.height_px), style.sky)
     draw = ImageDraw.Draw(img)
@@ -553,17 +528,53 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
     slack_px = OFF_CANVAS_REACH_M * 2 * CELL_W / (math.sqrt(2) * camera.cell_m)
     head_px = OFF_CANVAS_STOREYS * camera.storey_px
 
+    models = models or {}
+    superseded = superseded or set()
+
     renderable = []
+    modelled: dict[str, list[Polygon]] = {}
+
+    # Point landmarks stand on a square of their own, since OSM gives them no
+    # outline: the Treaty Stone is one node, and a node cannot be extruded.
+    for poi in layers.pois:
+        model = models.get(poi.osm_id)
+        if model is None or model.recipe not in POINT_RECIPES:
+            continue
+        modelled[poi.osm_id] = [
+            square((poi.point.x, poi.point.y), float(model.p("side_m", 3.0)))
+        ]
+
     for b in layers.buildings:
-        if b.geom.area < min_area_m2:
+        if b.geom.area < min_area_m2 or b.osm_id in superseded:
             continue
         c = b.geom.centroid
         sx, sy = camera.ground(c.x, c.y)
-        if (-slack_px <= sx <= camera.width_px + slack_px
+        if not (-slack_px <= sx <= camera.width_px + slack_px
                 and -(slack_px + head_px) <= sy <= camera.height_px + slack_px):
+            continue
+        if b.osm_id in models:
+            # A relation reaches here once per member polygon, and a landmark
+            # recipe needs all of them at once — a courtyard is a hole in the
+            # whole, not a property of one ring.
+            modelled.setdefault(b.osm_id, []).append(b.geom)
+        else:
             renderable.append((sy, b))
 
-    for _, b in sorted(renderable, key=lambda t: t[0]):
-        draw_building(draw, camera, b, style, seed, stats)
+    # Landmarks share the painter's queue with everything else: a cathedral
+    # behind a terrace has to be drawn before it, whatever else it is.
+    queue: list[tuple[float, str, object]] = [(sy, "building", b) for sy, b in renderable]
+    for osm_id, polys in modelled.items():
+        masses = masses_for(models[osm_id], polys)
+        if not masses:
+            continue
+        base = max(camera.ground(p.centroid.x, p.centroid.y)[1] for p in polys)
+        queue.append((base, "landmark", masses))
+        stats.landmarks_drawn.add(osm_id)
+
+    for _, kind, item in sorted(queue, key=lambda t: t[0]):
+        if kind == "building":
+            draw_building(draw, camera, item, style, seed, stats)
+        else:
+            draw_landmark(draw, img, camera, item, style, stats)
 
     return img, stats

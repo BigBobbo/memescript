@@ -327,3 +327,64 @@ constraint anyone expected it to be.
   runs diagonally across the ground rhombus, not along it, so the divisor is
   `hypot(CELL_W, CELL_H)`. An 8 m frontage at 0.3 m/cell is 60 px, not 107.
   Only the printed figure was affected; nothing rendered differently.
+
+---
+
+## 9. Landmarks — recipes, not sprites (2026-07-29)
+
+The plan called for hand-drawn voxel sprites for the tier-1 landmarks. That is
+now the wrong answer, for two reasons the pipeline created after the plan was
+written:
+
+* **schematize rotates footprints bodily** onto the isometric grid, so a sprite
+  pinned to a lat/lon lands beside its own building rather than on it;
+* **the frame is not fixed** — rotation, cell size and scale have all changed
+  since, and each change would mean redrawing every sprite.
+
+So a landmark is a **recipe** instead: a function that reads its own OSM
+footprint and returns extruded masses. "A castle is the footprint's round
+bulges, extruded taller than the wall between them, all of it crenellated" is
+both the description and the implementation. It survives a re-fetch.
+
+### What a footprint already knows
+
+More than expected, once asked properly:
+
+| Read from the footprint | How |
+|---|---|
+| The castle's five drum towers | Runs of short edges turning the same way through >100°, then a circle fit — no tower coordinates anywhere |
+| The castle courtyard | The relation's interior ring |
+| Which end of a church carries the tower | The oriented box's long axis, taking the west end and sliding inboard until the building is actually underneath |
+| The ridge of a train shed | The same long axis, as a narrow strip |
+
+Only heights, materials and the compass hint come from config
+(`landmarks.toml`, `[[model]]`), because a footprint cannot supply them.
+
+### The recipes
+
+| Recipe | Landmark | What it builds |
+|---|---|---|
+| `castle` | King John's Castle | Curtain wall + drum towers, crenellated, arrow slits, open courtyard |
+| `church` | St John's, St Mary's | Nave under a steep ridge, tower at the west end, spire or battlements |
+| `canopy` | Milk Market | Posts and a roof, no walls — `building=roof` means what it says |
+| `trainshed` | Colbert | Long ridge, clerestory band, glazed lantern along the top |
+| `palazzo` | Hunt Museum | Dressed stone, hipped, a sash grid |
+| `tower_block` | Riverpoint | Storey-banded curtain glazing, 59 m |
+| `monument` | The Treaty Stone | Stepped plinth from a single OSM node |
+
+St John's spire is the tallest thing in the frame at 90 m — as it is in Ireland.
+
+### Two things this exposed
+
+- **OSM maps King John's Castle twice**: a solid `building=castle` way and a
+  relation carrying the courtyard as a hole. Drawing both buried the walls under
+  a slab, which is what the earlier renders showed as a featureless brown mass.
+  Models can now declare what they `supersede`.
+- **Detail was counted per polygon edge.** On a surveyed rectangle that is
+  fine; on a 24-sided drum tower it produced 24 windows and no crenellations at
+  all (each edge being shorter than one merlon). Openings and merlons are now
+  placed by **arc length round the whole ring**, so a tower gets a dozen merlons
+  and a wall keeps its bays — and a merlon that straddles a corner turns it.
+
+Landmarks share the painter's queue with ordinary buildings, so a cathedral
+behind a terrace is drawn behind it. Render cost is unchanged at ~60 s.

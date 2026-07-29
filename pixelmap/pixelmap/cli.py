@@ -136,14 +136,19 @@ def cmd_bearings(args) -> int:
     return 0
 
 
-def _load_landmarks(city: City) -> list[dict]:
+def _landmark_config(city: City) -> dict:
+    """The city's landmarks.toml — anchors under `landmark`, models under `model`."""
     import tomllib
 
     path = city.dir / "landmarks.toml"
     if not path.exists():
-        return []
+        return {}
     with path.open("rb") as fh:
-        return tomllib.load(fh).get("landmark", [])
+        return tomllib.load(fh)
+
+
+def _load_landmarks(city: City) -> list[dict]:
+    return _landmark_config(city).get("landmark", [])
 
 
 def cmd_frontages(args) -> int:
@@ -225,16 +230,23 @@ def cmd_frame(args) -> int:
         img, grey_stats = render(layers, camera)
         drawn = grey_stats.buildings_drawn
     else:
+        from .landmarks import load_models
         from .paint import render as paint_render
         from .style import STYLES
 
-        img, stats = paint_render(layers, camera, STYLES[args.style], city.seed)
+        models, superseded = load_models(_landmark_config(city))
+        img, stats = paint_render(layers, camera, STYLES[args.style], city.seed,
+                                  models=models, superseded=superseded)
         drawn = stats.buildings
         print(f"  painted {stats.buildings} buildings · "
               f"{stats.roofs_tagged} pitched roofs · "
               f"{stats.facades_detailed} detailed facades · "
               f"{stats.shopfronts} shopfronts · "
               f"{stats.quay_walls} quay walls · {stats.bridges} bridges")
+        missing = sorted(set(models) - stats.landmarks_drawn)
+        print(f"  {stats.landmarks} landmarks modelled "
+              f"({stats.landmark_masses} masses)"
+              + (f" · not on canvas: {', '.join(missing)}" if missing else ""))
     path = save_preview(img, city.out / f"{args.slug}.png")
 
     preview = img.copy()

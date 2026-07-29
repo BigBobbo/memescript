@@ -108,3 +108,105 @@ name = "King's Island (Englishtown core)"
 short = "King's Island"
 lat = 52.66850
 lon = -8.62300
+
+# ---------------------------------------------------------------------------
+# Models — how a named building is actually built, as opposed to where it is.
+#
+# Each entry names an OSM footprint and a recipe from pixelmap/landmarks.py.
+# The recipe reads the footprint; everything here is what a footprint cannot
+# tell you: how tall the thing is, and which end of a church carries the tower.
+# Heights are metres above ground, taken from published figures where they
+# exist and from storey counts where they do not.
+
+[[model]]
+osm = "relation/1304392"
+name = "King John's Castle"
+recipe = "castle"
+# OSM maps the castle twice: a solid `building=castle` footprint and this
+# relation, which carries the courtyard as a hole. Drawing both buries the
+# walls under the slab.
+supersedes = ["way/25738380"]
+wall_m = 11.0        # curtain wall to the wall walk
+tower_m = 17.0       # the drum towers, found from the footprint's own bulges
+merlon_m = 1.7
+material = "limestone"
+
+[[model]]
+osm = "relation/7374756"
+name = "Saint John's Cathedral"
+recipe = "church"
+nave_m = 17.0
+ridge_m = 7.0
+tower_at = "west"    # the tower is at the west front; the altar is east
+tower_side_m = 11.0
+tower_m = 34.0
+# The spire is the tallest in Ireland. Published figures vary between 81 m and
+# 94 m depending on whether the cross is counted; 90 m to the finial is the
+# middle of that range and it is the tallest thing in the frame either way.
+spire_m = 56.0
+material = "limestone"
+roof_material = "slate"
+
+[[model]]
+osm = "way/87651393"
+name = "Saint Mary's Cathedral"
+recipe = "church"
+nave_m = 13.0
+ridge_m = 5.5
+tower_at = "west"
+tower_side_m = 10.0
+tower_m = 36.0       # the battlemented tower, ~120 ft
+merlon_m = 1.5
+material = "limestone"
+roof_material = "slate"
+
+[[model]]
+osm = "relation/1605654"
+name = "Milk Market"
+recipe = "canopy"
+eaves_m = 7.5
+ridge_m = 3.5
+material = "limestone"
+roof_material = "canopy"
+
+[[model]]
+osm = "way/87866405"
+name = "Colbert Station"
+recipe = "trainshed"
+eaves_m = 9.0
+ridge_m = 6.5
+lantern_m = 3.0      # the glazed ridge lantern, without which 140 m of roof
+lantern_w_m = 7.0    # is one unbroken slab
+material = "limestone"
+# Lead rather than slate: the shed roof is the largest single surface in the
+# southern third of the frame, and in dark slate it reads as a hole in the city.
+roof_material = "lead"
+
+[[model]]
+osm = "way/87651394"
+name = "Hunt Museum (the Custom House)"
+recipe = "palazzo"
+eaves_m = 13.5
+ridge_m = 3.4
+material = "limestone"
+roof_material = "slate"
+
+[[model]]
+osm = "way/505046239"
+name = "Riverpoint"
+recipe = "tower_block"
+eaves_m = 59.0       # tagged height=59 in OSM
+material = "glass"
+
+[[model]]
+osm = "node/2216957587"
+name = "The Treaty Stone"
+recipe = "monument"
+# The stone stands on a stepped limestone plinth on Clancy Strand. At 0.3 m per
+# cell the whole thing is about 30 px — the silhouette is all that can read, so
+# that is what is modelled.
+side_m = 3.2
+step_m = 0.5
+plinth_m = 2.0
+stone_m = 1.1
+material = "limestone"

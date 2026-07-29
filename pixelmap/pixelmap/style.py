@@ -63,6 +63,13 @@ class Style:
     #: barely correlate, and tying them made every red building grow a red roof.
     roofs: tuple[tuple[int, int, int], ...] = field(default=())
     landmark: Facade | None = None
+    #: Named materials for landmark models. Generated buildings draw from the
+    #: random `facades` pool; a landmark asks for limestone or copper by name,
+    #: because "the cathedral is whatever colour its id hashed to" is exactly
+    #: the wrong answer for the buildings people will look at first.
+    materials: dict[str, Facade] = field(default_factory=dict)
+    #: The ground inside a walled enclosure — cobbles, not roof.
+    court: tuple[int, int, int] = (176, 172, 158)
     #: Weight of the outline in pixels. 0 disables it.
     outline_px: int = 1
 
@@ -127,6 +134,35 @@ LIMERICK_DAY = Style(
         (140, 134, 124),   # warm grey
     ),
     landmark=Facade(roof=(120, 116, 108), left=(224, 214, 190), right=(170, 160, 140)),
+    # King John's bailey is grass over the excavations. It also has to differ
+    # clearly from the limestone wall head above it, or the enclosure reads as a
+    # solid slab rather than as walls round a space.
+    court=(132, 152, 104),
+    # Limerick builds in its own grey limestone; the cathedrals, the castle and
+    # the Custom House are all the same stone, so they are all the same colour
+    # here, and the eye reads them as a set.
+    materials={
+        "limestone": Facade(roof=(150, 148, 138), left=(214, 210, 194),
+                            right=(158, 154, 140)),
+        "limestone_dark": Facade(roof=(128, 126, 118), left=(184, 180, 166),
+                                 right=(134, 130, 118)),
+        "brick": Facade(roof=(140, 132, 124), left=(178, 104, 80),
+                        right=(132, 74, 56)),
+        "render": Facade(roof=(148, 144, 136), left=(238, 230, 212),
+                         right=(182, 174, 158)),
+        "slate": Facade(roof=(96, 108, 126), left=(120, 130, 146),
+                        right=(86, 96, 112)),
+        "lead": Facade(roof=(122, 130, 134), left=(146, 152, 156),
+                       right=(108, 114, 120)),
+        "copper": Facade(roof=(112, 164, 148), left=(134, 182, 166),
+                         right=(90, 136, 122)),
+        # A market canopy is a bright lid, not a roof: it has to read as light
+        # coming through rather than slate sitting on top.
+        "canopy": Facade(roof=(238, 234, 222), left=(246, 242, 232),
+                         right=(206, 200, 186)),
+        "glass": Facade(roof=(118, 138, 152), left=(150, 176, 190),
+                        right=(104, 128, 144)),
+    },
 )
 
 #: OSM roof:colour values seen in Limerick, plus the usual CSS names.
@@ -170,6 +206,18 @@ def roof_for(style: Style, osm_id: str, seed: int) -> tuple[int, int, int]:
         raise ValueError(f"style {style.name!r} has no roof colours")
     digest = hashlib.blake2b(f"roof:{seed}:{osm_id}".encode(), digest_size=4).digest()
     return style.roofs[int.from_bytes(digest, "big") % len(style.roofs)]
+
+
+def material_for(style: Style, name: str) -> Facade:
+    """A landmark's named material. Unknown names are a config typo, not a
+    licence to silently draw the wrong thing."""
+    try:
+        return style.materials[name]
+    except KeyError:
+        raise KeyError(
+            f"style {style.name!r} has no material {name!r} "
+            f"(have {', '.join(sorted(style.materials))})"
+        ) from None
 
 
 def facade_for(style: Style, osm_id: str, seed: int = 0) -> Facade:

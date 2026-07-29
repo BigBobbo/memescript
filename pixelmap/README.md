@@ -10,9 +10,13 @@ and raised bridge decks. Streets, banks and footprints are snapped onto the
 eight directions that render as crisp isometric lines (70% of road length, up
 from 11%). Buildings are drawn at true isometric height with streets widened
 3.5 m per side instead. Framed with the Shannon low and west on the right,
-2868 × 1860 m of ground at 0.3 m per cell — 27036 × 8768 px, 9,843 buildings,
+2868 × 1860 m of ground at 0.3 m per cell — 27036 × 8768 px, 9,833 buildings,
 an 8 m frontage 60 px of wall — reaching from Ted Russell Dock to King John's
-Castle and Colbert. Landmarks are next. See [`PLAN.md`](PLAN.md) for the full design and
+Castle and Colbert. Eight landmarks are modelled from their own OSM footprints
+rather than drawn as sprites: the castle's crenellated curtain wall and drum
+towers, St John's 90 m spire, St Mary's battlemented tower, the Milk Market
+canopy, Colbert's train shed, the Hunt Museum, Riverpoint and the Treaty Stone.
+Trees, boats and the compose stage are next. See [`PLAN.md`](PLAN.md) for the full design and
 [`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and locked.
 
 ## Setup
@@ -50,7 +54,7 @@ Everything Limerick-specific is data under `cities/limerick/`:
 | File | Contents |
 |---|---|
 | `city.toml` | bbox, CRS, rotation, cell size, frame extents, print size, seed |
-| `landmarks.toml` | tier-1/2 landmarks — anchors for framing and, later, sprites |
+| `landmarks.toml` | `[[landmark]]` anchors for framing checks; `[[model]]` recipes, heights and materials for the named buildings |
 | `cache/raw/` | the committed OSM snapshot, so a print stays reproducible |
 
 The pipeline never branches on city name.
@@ -60,9 +64,14 @@ The pipeline never branches on city name.
 `fetch` → `extract` → `schematize` → `discretize` → `decorate` → `render` → `compose`
 
 Stages 0–2 and 5 are built. `discretize` and `decorate` are not yet needed —
-the renderer draws from schematized vector geometry directly. `--grey` falls
-back to the grey-box renderer for judging composition; `--raw` skips schematize
-to show true OSM geometry.
+the renderer draws from schematized vector geometry directly.
+
+Inside `render`, three modules split by what changes them: `draw3d` is the
+isometric primitives (extrude a ring, crenellate it, put a spire on it),
+`landmarks` decides what a named building is made of, and `monuments` draws it.
+
+`--grey` falls back to the grey-box renderer for judging composition; `--raw`
+skips schematize to show true OSM geometry.
 
 ## Attribution
 

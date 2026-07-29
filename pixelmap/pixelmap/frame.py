@@ -12,11 +12,7 @@ import math
 
 from pyproj import Transformer
 
-from .iso import CELL_H, CELL_W, Camera
-
-#: Metres per storey. Irish terraces run a little under this; it is the divisor
-#: used when a building carries a `height` tag instead of `building:levels`.
-STOREY_M = 3.2
+from .iso import CELL_H, CELL_W, STOREY_M, Camera
 
 
 def true_storey_px(cell_m: float) -> float:
