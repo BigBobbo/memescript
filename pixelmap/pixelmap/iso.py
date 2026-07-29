@@ -55,6 +55,18 @@ class Camera:
             sy + self.height_px / 2 + self.centre_shift_px[1],
         )
 
+    def world(self, sx: float, sy: float) -> tuple[float, float]:
+        """Inverse of `ground` — the world point under a canvas pixel."""
+        cos_r, sin_r = self._rot
+        px = sx - self.width_px / 2 - self.centre_shift_px[0]
+        py = sy - self.height_px / 2 - self.centre_shift_px[1]
+        u = (px / CELL_W + py / CELL_H) / 2 * self.cell_m
+        v = (px / CELL_W - py / CELL_H) / 2 * self.cell_m
+        return (
+            self.origin_x + u * cos_r + v * sin_r,
+            self.origin_y - u * sin_r + v * cos_r,
+        )
+
     def lift(self, point: tuple[float, float], levels: float) -> tuple[float, float]:
         """Raise a projected point by a number of storeys."""
         return (point[0], point[1] - levels * self.storey_px)

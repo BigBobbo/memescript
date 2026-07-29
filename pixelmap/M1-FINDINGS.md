@@ -269,3 +269,61 @@ neighbour's.
   but only 31% validated, so some outlines are visibly unsquare).
 - The Milk Market's roof relation, bridges over water, and the quay walls all
   need explicit handling once styling starts.
+
+---
+
+## 8. Frame scale — coverage and detail split apart (2026-07-29)
+
+The frame was covering the Georgian core and the bridges but stopping short of
+the docks, Colbert and, at the bottom edge, King John's Castle. Widening it
+without losing detail meant separating two things that had been tangled
+together in `[frame]`:
+
+| Knob | Changes | Leaves alone |
+|---|---|---|
+| `scale` | how much ground is in shot | pixels per metre, canvas aspect |
+| `cell_m` | pixels per metre | what is in shot |
+
+`camera_for(city, scale=…)` multiplies both ground extents, so the canvas grows
+around the same subject at the same density and the aspect stays at 3.08:1.
+
+### Choosing the value
+
+Each subject implies a minimum scale — the factor at which it first lands on
+canvas. Measured against the locked frame:
+
+| Subject | Needs scale |
+|---|---|
+| Limerick Docks landuse, full western tail | 1.90 |
+| Ted Russell Dock (the wet dock itself) | 1.52 |
+| People's Park | 1.17 |
+| Colbert Station | 1.09 |
+| Thomond Bridge | 0.97 |
+| King John's Castle | 0.86 |
+
+**Locked at 1.55** — the wet dock with a little air around it, and everything
+else comfortably inside. 1.90 was rejected on data, not taste: the ground
+rectangle at that scale runs past the fetched bbox at lon −8.6563 (fetch west
+edge −8.660 is met, but the south edge 52.6543 is not), so the western tail of
+the docks landuse would render as empty land. Taking it in means re-fetching a
+wider bbox, and it is 700 m of yard and hardstanding.
+
+| Scale | Ground | Canvas at 0.3 m/cell | Buildings |
+|---|---|---|---|
+| 1.00 | 1850 × 1200 m | 17442 × 5656 px, 99 Mpx | 4,699 |
+| 1.55 | 2868 × 1860 m | 27036 × 8768 px, 237 Mpx | 9,843 |
+
+Render cost at 1.55: **70 s wall, 1.4 GB peak RSS, 16 MB PNG**. Not the
+constraint anyone expected it to be.
+
+### Two fixes the enlargement exposed
+
+- **The off-canvas cull was measured in pixels**, so a coarse preview quietly
+  dragged in thousands of buildings that could never touch the canvas — 15,337
+  at 1.2 m/cell against 9,600 at 0.3 m. Restated in ground metres and storeys
+  (`OFF_CANVAS_REACH_M`, `OFF_CANVAS_STOREYS`); both cell sizes now select the
+  same 9,843 buildings, of which 7,813 sit strictly on canvas.
+- **The reported frontage size was wrong**, quoting `8 / cell × CELL_W`. A wall
+  runs diagonally across the ground rhombus, not along it, so the divisor is
+  `hypot(CELL_W, CELL_H)`. An 8 m frontage at 0.3 m/cell is 60 px, not 107.
+  Only the printed figure was affected; nothing rendered differently.

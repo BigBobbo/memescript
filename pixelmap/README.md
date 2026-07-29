@@ -9,8 +9,10 @@ painted renderer with pitched roofs, windowed facades, shopfronts, walled quays
 and raised bridge decks. Streets, banks and footprints are snapped onto the
 eight directions that render as crisp isometric lines (70% of road length, up
 from 11%). Buildings are drawn at true isometric height with streets widened
-3.5 m per side instead. Framed with the Shannon low and west on the right, at
-0.3 m per cell: an 8 m frontage is ~107 px of wall. Landmarks are next. See [`PLAN.md`](PLAN.md) for the full design and
+3.5 m per side instead. Framed with the Shannon low and west on the right,
+2868 × 1860 m of ground at 0.3 m per cell — 27036 × 8768 px, 9,843 buildings,
+an 8 m frontage 60 px of wall — reaching from Ted Russell Dock to King John's
+Castle and Colbert. Landmarks are next. See [`PLAN.md`](PLAN.md) for the full design and
 [`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and locked.
 
 ## Setup
@@ -35,7 +37,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |
 | `greybox --study` | Six framing variants as a contact sheet |
 | `greybox --orientations` | All four quarter turns compared |
-| `frame` | Render the configured frame — the composition of record. `--cell` trades detail for speed, `--grey` for grey-box, `--raw` skips snapping |
+| `frame` | Render the configured frame — the composition of record. `--scale` changes how much city is in shot, `--cell` how finely it is drawn (so speed), `--grey` for grey-box, `--raw` skips snapping |
 | `frontages` | Rank facades by visible wall area; writes `facades.md` |
 
 Renders land in `cities/<city>/out/` (gitignored); evidence kept for each gate

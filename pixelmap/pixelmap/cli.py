@@ -184,16 +184,31 @@ def cmd_frontages(args) -> int:
 
 def cmd_frame(args) -> int:
     """Render the configured frame — the composition of record."""
+    import math
+
     from PIL import Image
     from pyproj import Transformer
 
-    from .frame import camera_for, true_storey_px
+    from .frame import camera_for, true_storey_px, wgs84_bounds
+    from .iso import CELL_H, CELL_W
     from .greybox import annotate_landmarks, render, save_preview
 
     city = load_city(args.city)
     layers = _extract_cached(city, force=args.force)
     cell_m = args.cell or city.cell_m
-    camera = camera_for(city, cell_m=cell_m)
+    camera = camera_for(city, cell_m=cell_m, scale=args.scale)
+
+    # A widened frame can reach past the OSM snapshot behind it, which shows up
+    # as a clean empty band rather than an error. Say so before spending the
+    # render rather than after.
+    south, west, north, east = wgs84_bounds(camera, city.crs)
+    b = city.config["bbox"]
+    if (south < b["south"] or west < b["west"]
+            or north > b["north"] or east > b["east"]):
+        print(f"  WARNING: frame reaches outside the fetched bbox — "
+              f"needs S{south:.4f} W{west:.4f} N{north:.4f} E{east:.4f}, "
+              f"have S{b['south']} W{b['west']} N{b['north']} E{b['east']}. "
+              f"Widen [bbox] and re-run fetch --force.")
 
     if not args.raw:
         from .schematize import crisp_share, schematize
@@ -239,10 +254,14 @@ def cmd_frame(args) -> int:
             print(f"  off canvas: {', '.join(missing)}")
 
     across, deep = camera.ground_extent_m()
-    print(f"{camera.width_px}x{camera.height_px} px ({camera.width_px/camera.height_px:.1f}:1) "
-          f"· rot {camera.rotation_deg:.2f} · cell {cell_m} m")
+    mpx = camera.width_px * camera.height_px / 1e6
+    print(f"{camera.width_px}x{camera.height_px} px ({camera.width_px/camera.height_px:.2f}:1, "
+          f"{mpx:.0f} Mpx) · rot {camera.rotation_deg:.2f} · cell {cell_m} m")
     print(f"  ground {across:.0f} x {deep:.0f} m · {drawn} buildings")
-    print(f"  8 m frontage {8/cell_m*4:.0f} px · storey {camera.storey_px:.1f} px "
+    # A ground edge along an iso axis is sqrt(CELL_W^2 + CELL_H^2) px per cell,
+    # not CELL_W: the wall runs diagonally across the rhombus, not along it.
+    print(f"  8 m frontage {8 / cell_m * math.hypot(CELL_W, CELL_H):.0f} px · "
+          f"storey {camera.storey_px:.1f} px "
           f"(true isometric {true_storey_px(cell_m):.1f})")
     print(f"  wrote {path}")
     return 0
@@ -410,6 +429,9 @@ def main(argv: list[str] | None = None) -> int:
     p_frame.add_argument("city")
     p_frame.add_argument("--cell", type=float, default=None,
                          help="override cell size in metres (smaller = more detail)")
+    p_frame.add_argument("--scale", type=float, default=None,
+                         help="widen the frame by this factor at the same pixels "
+                              "per metre and the same aspect (bigger = more city)")
     p_frame.add_argument("--slug", default="frame")
     p_frame.add_argument("--grey", action="store_true",
                          help="grey-box instead of the painted style")

@@ -85,6 +85,18 @@ across_m = 1850
 deep_m   = 1200
 anchor   = { lat = 52.6683, lon = -8.6274 }
 
+# How much more ground to take in, at the same pixels per metre and the same
+# aspect. Coverage and detail are separate knobs on purpose: `scale` grows the
+# canvas around the subject, `cell_m` changes how finely it is drawn.
+#
+# 1.55 is the smallest value that takes in everything asked for — Ted Russell
+# Dock and the dock road (needs 1.52), Colbert (1.09), People's Park (1.17),
+# King John's Castle and Thomond Bridge (0.97) — with a little air around the
+# tightest of them. The full Limerick Docks landuse tails another 700 m west
+# and would need 1.90, which reaches outside the fetched bbox; the wet dock
+# itself is the part worth drawing.
+scale = 1.55
+
 # The river is placed by a real mid-channel point rather than by its centroid:
 # Overpass returns whole river polygons spanning 18 km, so the centroid sits far
 # outside the frame and is useless as a reference.

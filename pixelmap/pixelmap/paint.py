@@ -26,7 +26,7 @@ from shapely.geometry import Point, Polygon, box
 from shapely.ops import unary_union
 
 from .extract import Building, Layers, Road
-from .iso import Camera
+from .iso import CELL_W, Camera
 from .style import Facade, Style, facade_for, parse_colour, roof_for
 
 #: A wall narrower or shorter than this has no room for openings; drawing them
@@ -36,6 +36,13 @@ MIN_WALL_H_PX = 9.0
 
 #: Typical spacing between window centres on an Irish terrace, in metres.
 WINDOW_PITCH_M = 2.9
+
+#: How far off canvas a building's centroid may sit and still be drawn: enough
+#: ground for half a large footprint, and enough storeys for a tall block above
+#: the top edge. Both are resolution-independent so the cull sees the same
+#: buildings whatever the cell size.
+OFF_CANVAS_REACH_M = 60.0
+OFF_CANVAS_STOREYS = 30.0
 
 
 @dataclass
@@ -538,13 +545,22 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
         draw_bridge(draw, camera, road, style)
         stats.bridges += 1
 
+    # A building whose centroid is off canvas can still reach into it — sideways
+    # by half its footprint, and upward by its height. The margins are stated in
+    # ground metres and storeys so they mean the same thing at any cell size;
+    # in pixels they would silently balloon on a coarse render and drag in
+    # thousands of buildings that never touch the canvas.
+    slack_px = OFF_CANVAS_REACH_M * 2 * CELL_W / (math.sqrt(2) * camera.cell_m)
+    head_px = OFF_CANVAS_STOREYS * camera.storey_px
+
     renderable = []
     for b in layers.buildings:
         if b.geom.area < min_area_m2:
             continue
         c = b.geom.centroid
         sx, sy = camera.ground(c.x, c.y)
-        if -400 <= sx <= camera.width_px + 400 and -1200 <= sy <= camera.height_px + 400:
+        if (-slack_px <= sx <= camera.width_px + slack_px
+                and -(slack_px + head_px) <= sy <= camera.height_px + slack_px):
             renderable.append((sy, b))
 
     for _, b in sorted(renderable, key=lambda t: t[0]):

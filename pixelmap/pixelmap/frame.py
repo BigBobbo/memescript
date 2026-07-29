@@ -39,14 +39,40 @@ def canvas_for(across_m: float, deep_m: float, cell_m: float) -> tuple[int, int]
     return int(w) + int(w) % 2, int(h) + int(h) % 2
 
 
-def camera_for(city, *, cell_m: float | None = None) -> Camera:
-    """Build the configured camera, anchoring the river at its target depth."""
+def wgs84_bounds(camera: Camera, crs: str) -> tuple[float, float, float, float]:
+    """(south, west, north, east) of the ground the canvas actually shows.
+
+    The canvas maps to a rotated rectangle on the ground, so its four corners
+    bound the visible region. Comparing this against the fetch bbox is what
+    catches a frame that has been widened past the data behind it.
+    """
+    to_wgs = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    corners = [
+        to_wgs.transform(*camera.world(sx, sy))
+        for sx, sy in ((0, 0), (camera.width_px, 0),
+                       (camera.width_px, camera.height_px), (0, camera.height_px))
+    ]
+    lons = [c[0] for c in corners]
+    lats = [c[1] for c in corners]
+    return min(lats), min(lons), max(lats), max(lons)
+
+
+def camera_for(city, *, cell_m: float | None = None, scale: float | None = None) -> Camera:
+    """Build the configured camera, anchoring the river at its target depth.
+
+    `scale` widens the frame without touching detail: it multiplies both ground
+    extents, so pixels per metre and the canvas aspect both stay put and the
+    canvas simply grows around the same subject. `cell_m` is the opposite knob —
+    same coverage, different detail. Keeping them separate is what lets the
+    composition and the resolution be argued about one at a time.
+    """
     frame = city.config["frame"]
     render = city.config["render"]
     cell_m = cell_m or city.cell_m
+    scale = scale if scale is not None else float(frame.get("scale", 1.0))
     to_crs = Transformer.from_crs("EPSG:4326", city.crs, always_xy=True)
 
-    width, height = canvas_for(frame["across_m"], frame["deep_m"], cell_m)
+    width, height = canvas_for(frame["across_m"] * scale, frame["deep_m"] * scale, cell_m)
     storey_px = true_storey_px(cell_m) * render["height_exaggeration"]
 
     anchor = frame["anchor"]
