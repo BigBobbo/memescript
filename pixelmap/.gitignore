@@ -1,0 +1,10 @@
+# Derived render outputs. The gate evidence in cities/*/gates/ is committed;
+# everything in out/ is scratch and regenerates from `pixelmap greybox`.
+cities/*/out/
+cities/*/cache/*.pickle
+cities/*/cache/*.log
+
+# The repo root ignores *.png; gate evidence and analysis figures are the
+# record of each decision, so re-include them explicitly.
+!cities/*/gates/*.png
+!cities/*/analysis/*.png

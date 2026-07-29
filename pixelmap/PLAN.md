@@ -4,8 +4,15 @@
 pixel-art poster of Limerick city — designed so a second city is a config file, not a
 second project.*
 
-**Status:** planning complete, implementation not started (by design).
+**Status:** M1 complete — see [`M1-FINDINGS.md`](M1-FINDINGS.md). Gate G1 awaiting sign-off.
 **Research date:** 2026-07-27. All data probes and links below were verified live on that date.
+
+> **M1 updated three things in this document.** The rotation is now measured, not
+> estimated (−32.75°, plus a +90° compositional turn → **+57.25°**); the cell size
+> and frame are solved and locked (**1.812 m**, centre 52.664928/−8.624746, showing
+> 1153 × 1537 m); and §4.1's "3 px per storey" was wrong — true isometric at this
+> cell size is 3.53 px, now set to **4.5 px**. §4.3's alignment maths also folded at
+> 90° where it should fold at 45°. The locked values live in `cities/limerick/city.toml`.
 
 ---
 
