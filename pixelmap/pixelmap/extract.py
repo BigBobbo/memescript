@@ -87,10 +87,10 @@ class Building:
     street: str | None = None
     #: Where `levels` came from: "tag", "lidar" or "default". Tags win over
     #: LiDAR — a surveyed storey count beats a 2 m raster inferring one.
+    #:
+    #: There is deliberately no measured roof height here. A 2 m raster cannot
+    #: see a ridge line: see `lidar.py`.
     levels_source: str = "default"
-    #: Metres from ground to ridge, when LiDAR measured it. The walls stop at
-    #: `levels`; this is how tall the roof on top of them should reach.
-    ridge_m: float | None = None
 
 
 @dataclass
@@ -550,7 +550,6 @@ def apply_lidar_heights(layers: Layers, survey, *, storey_m: float = 3.2,
                 # Half a storey is the finest step 2 m data can justify, and it
                 # keeps a bungalow from rounding up into a two-storey house.
                 building.levels = round(levels * 2) / 2
-                building.ridge_m = measured.ridge_m
                 building.levels_source = "lidar"
         tally[building.levels_source] += 1
     return tally

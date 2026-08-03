@@ -36,6 +36,19 @@ calibration to hand-tune.
 Vintage is a feature as much as a limit: anything built after 2011 reads as
 bare ground, fails the minimum-height test and is handed back to the tag or the
 default rather than being flattened to nothing.
+
+**The ridge is recorded but must not be used as a roof height.** A 2 m raster
+cannot see a ridge line: it is a thin feature, few pixels land on it, and even
+the 97th percentile lands well below it — the same reason St John's 90 m spire
+reads as 56 m. Measured against the wall tops, it implies a median roof of
+0.86 m where a real gabled terrace rises 2-3 m, so feeding it to the renderer
+would flatten the whole roofscape. It does not help pick a roof shape either:
+99.8% of Limerick's roof-tagged buildings are pitched, so there is nothing to
+discriminate, and the spread between the 85th and 97th percentiles scores 21%
+against 99.7% for the footprint-area rule already in `paint._infer_roof_shape`.
+The width-scaled pitch the renderer draws is the better model. The measurement
+stays here because it is honest data about big flat-roofed buildings and it
+names the tallest things in the frame; it is not a roof height.
 """
 
 from __future__ import annotations

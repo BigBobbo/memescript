@@ -258,6 +258,10 @@ def _report_heights(city: City, layers, survey) -> None:
     lines += [
         "## Tallest ridges found",
         "",
+        "These name the tallest things in the frame. They are *not* used as roof",
+        "heights — at 2 m a ridge line is too thin to land pixels on, so this",
+        "column reads low for anything pitched. See the note in `lidar.py`.",
+        "",
         "| Building | Roof m | Ridge m | Pixels |",
         "|---|---|---|---|",
     ]
