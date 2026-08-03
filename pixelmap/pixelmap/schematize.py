@@ -11,19 +11,23 @@ Three different treatments, because the geometry types want different things:
   junctions would pull apart. Segments declare the direction they want and node
   positions are relaxed until the network agrees.
 * **Buildings** are rigid objects. Rotating each footprint bodily onto the grid
-  keeps its shape intact; snapping edge by edge would shred it.
+  keeps its shape intact; snapping edge by edge would shred it. A building only
+  gets rotated if it has an orientation to be rotated onto — see
+  `rigid_snap_polygon`.
 * **Water and greens** are soft outlines. They are simplified hard first, so
   snapping produces a few long deliberate reaches instead of a jagged staircase.
 """
 
 from __future__ import annotations
 
+import cmath
 import math
 from dataclasses import replace
 
 from shapely.affinity import rotate as shapely_rotate
 from shapely.affinity import translate
 from shapely.geometry import LineString, Polygon
+from shapely.ops import unary_union
 from shapely.strtree import STRtree
 
 from .bearings import CLEAN_FOLD_DEG, rotated_bearing
@@ -148,30 +152,72 @@ def snap_network(
     return out
 
 
-def rigid_snap_polygon(poly: Polygon, rotation: float,
-                       fold: float = CLEAN_FOLD_DEG) -> Polygon:
-    """Rotate a footprint bodily so its dominant edge lands on a crisp direction.
+#: Below this, a footprint's walls disagree too much to be pointing anywhere.
+#: Ordinary buildings are rectangular and score 1.000; the exceptions are round
+#: or curved — King John's Castle scores 0.36, the Riverpoint tower 0.08.
+MIN_ORIENTATION_COHERENCE = 0.5
 
-    Rotating rather than snapping edge by edge keeps the building's own shape —
-    right angles stay right angles, and a terrace stays a terrace.
+
+def polygon_orientation(poly: Polygon, rotation: float,
+                        fold: float = CLEAN_FOLD_DEG) -> tuple[float, float] | None:
+    """(rotation onto the nearest crisp direction, coherence) for a footprint.
+
+    Orientation is the length-weighted circular mean of the edge bearings, taken
+    at the harmonic that collapses the fold's symmetry — the same trick
+    `bearings.fit_grid` uses on the street network, at 45 degrees instead of 90.
+    Long walls therefore outvote short ones, and a building speaks with one
+    voice rather than through whichever single edge happens to be longest.
+
+    Coherence is that mean's normalised magnitude: 1 when every edge agrees on
+    the same direction (any rectangle, whatever its angle), 0 when they point
+    everywhere. It is what tells a terrace from a drum tower.
     """
     coords = list(poly.exterior.coords)
     if len(coords) < 3:
-        return poly
+        return None
 
-    # The longest edge decides the building's orientation.
-    best_len, best_b = 0.0, None
+    harmonic = 360.0 / fold
+    total = 0.0
+    phasor = 0j
     for (x1, y1), (x2, y2) in zip(coords, coords[1:]):
         dx, dy = x2 - x1, y2 - y1
         length = math.hypot(dx, dy)
-        if length > best_len:
-            best_len, best_b = length, _bearing(dx, dy)
-    if best_b is None or best_len <= 0:
-        return poly
+        if length <= 1e-9:
+            continue
+        bearing = rotated_bearing(_bearing(dx, dy), rotation)
+        total += length
+        phasor += length * cmath.exp(1j * harmonic * math.radians(bearing))
 
-    b = rotated_bearing(best_b, rotation)
-    delta = (round(b / fold) * fold) - b
-    if abs(delta) < 1e-9:
+    if total <= 0 or phasor == 0:
+        return None
+
+    coherence = abs(phasor) / total
+    dominant = (math.degrees(cmath.phase(phasor)) / harmonic) % fold
+    # Turn the short way onto the crisp direction, never more than half a fold.
+    delta = -dominant if dominant <= fold / 2 else fold - dominant
+    return delta, coherence
+
+
+def rigid_snap_polygon(poly: Polygon, rotation: float,
+                       fold: float = CLEAN_FOLD_DEG,
+                       min_coherence: float = MIN_ORIENTATION_COHERENCE) -> Polygon:
+    """Rotate a footprint bodily so its walls land on a crisp direction.
+
+    Rotating rather than snapping edge by edge keeps the building's own shape —
+    right angles stay right angles, and a terrace stays a terrace.
+
+    A round or irregular footprint is left exactly where it is. It has no
+    dominant wall direction, so any rotation chosen for it is arbitrary, and the
+    arbitrary rotation is not free: King John's Castle was being swung 19
+    degrees off true and left jutting into the Shannon instead of sitting flush
+    along the bank. Rotating a building is a licence worth taking when it buys
+    crisp walls; on a drum tower it buys nothing and costs the river.
+    """
+    result = polygon_orientation(poly, rotation, fold)
+    if result is None:
+        return poly
+    delta, coherence = result
+    if coherence < min_coherence or abs(delta) < 1e-9:
         return poly
     # Shapely rotates counter-clockwise; bearings run clockwise.
     return shapely_rotate(poly, -delta, origin="centroid", use_radians=False)
@@ -322,6 +368,7 @@ def schematize(
     road_simplify_m: float = 6.0,
     water_simplify_m: float = 30.0,
     street_widen_m: float = 0.0,
+    min_coherence: float = MIN_ORIENTATION_COHERENCE,
     log=print,
 ) -> Layers:
     """Push every layer onto the isometric grid."""
@@ -331,11 +378,22 @@ def schematize(
     out.rail = snap_network(layers.rail, rotation, simplify_m=road_simplify_m)
     out.waterways = snap_network(layers.waterways, rotation, simplify_m=12.0)
 
-    out.buildings = widen_streets(
-        [replace(b, geom=rigid_snap_polygon(b.geom, rotation))
-         for b in layers.buildings],
-        out.roads, rotation, street_widen_m,
-    )
+    snapped, round_ones = [], 0
+    for b in layers.buildings:
+        oriented = polygon_orientation(b.geom, rotation)
+        if oriented is None:
+            geom = b.geom
+        elif oriented[1] < min_coherence:
+            # Round or irregular: no wall direction to snap onto, so leave it
+            # exactly where it stands rather than swinging it somewhere untrue.
+            geom = b.geom
+            round_ones += 1
+        else:
+            geom = shapely_rotate(b.geom, -oriented[0], origin="centroid")
+        snapped.append(replace(b, geom=geom))
+    if round_ones:
+        log(f"  {round_ones} buildings left unrotated (no dominant wall direction)")
+    out.buildings = widen_streets(snapped, out.roads, rotation, street_widen_m)
     out.water = [
         Area(a.osm_id,
              snap_ring(a.geom, rotation,
@@ -345,6 +403,7 @@ def schematize(
              a.kind, a.name)
         for a in layers.water
     ]
+    out.water = _keep_dry_land(out.water, layers.water, out.buildings, log=log)
     out.green = [
         Area(a.osm_id, snap_ring(a.geom, rotation, simplify_m=15.0), a.kind, a.name)
         for a in layers.green
@@ -356,6 +415,73 @@ def schematize(
     out.pois = list(layers.pois)
 
     log(f"  schematized: {out.summary()}")
+    return out
+
+
+#: A building overlapping raw water by more than this really does stand over it
+#: — a boathouse, a jetty, a quay shed — and the river is allowed to keep it.
+WET_BUILDING_SHARE = 0.15
+
+
+def _keep_dry_land(water: list[Area], raw_water: list[Area],
+                   buildings: list[Building], *, log=print) -> list[Area]:
+    """Stop a stylised bank from flooding buildings that stand on dry land.
+
+    Water is simplified far harder than anything else — 45 m for the Shannon —
+    so that the river reads as a few long deliberate reaches instead of a
+    snapped staircase. That is a deliberate liberty, but a 45 m liberty taken
+    along a bank lined with buildings will swallow some of them: King John's
+    Castle sits entirely on land in OSM and ended up 19% under the river.
+
+    Rather than weaken the simplification everywhere for the sake of a few
+    metres of bank, the bank keeps its bold line and gives way where a building
+    was standing on dry land to begin with. Dryness is judged against the raw
+    water, before simplification, so the test cannot be corrupted by the very
+    liberty it is checking.
+    """
+    if not water or not buildings:
+        return water
+
+    raw = unary_union([a.geom for a in raw_water if not a.geom.is_empty])
+    if raw.is_empty:
+        return water
+
+    # Only buildings the simplified water actually reaches can be flooded by it,
+    # and that is a waterfront handful out of twenty thousand — so let the index
+    # find them rather than intersecting the whole city against the river.
+    shapes = [a.geom for a in water]
+    tree = STRtree(shapes)
+    dry = []
+    for b in buildings:
+        if b.geom.is_empty or b.geom.area <= 0:
+            continue
+        if not any(shapes[i].intersects(b.geom) for i in tree.query(b.geom)):
+            continue
+        if b.geom.intersection(raw).area / b.geom.area <= WET_BUILDING_SHARE:
+            dry.append(b.geom)
+    if not dry:
+        return water
+
+    dry_union = unary_union(dry)
+    out, rescued = [], 0.0
+    for area in water:
+        flooded = area.geom.intersection(dry_union).area
+        if flooded <= 0:
+            out.append(area)
+            continue
+        rescued += flooded
+        trimmed = area.geom.difference(dry_union)
+        if trimmed.is_empty:
+            continue
+        # A difference can shatter one bank into slivers; keep the polygons.
+        if trimmed.geom_type == "Polygon":
+            out.append(Area(area.osm_id, trimmed, area.kind, area.name))
+        else:
+            for part in trimmed.geoms:
+                if part.geom_type == "Polygon" and part.area > 1.0:
+                    out.append(Area(area.osm_id, part, area.kind, area.name))
+    if rescued > 0:
+        log(f"  water pulled back off {rescued:.0f} m² of dry land")
     return out
 
 
