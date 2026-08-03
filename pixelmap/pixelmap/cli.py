@@ -507,6 +507,77 @@ def cmd_frame(args) -> int:
     return 0
 
 
+def cmd_site(args) -> int:
+    """Cut the frame into a tile pyramid and emit the zoomable viewer."""
+    from pyproj import Transformer
+
+    from .frame import camera_for
+    from .landmarks import load_models
+    from .paint import render as paint_render
+    from .schematize import schematize
+    from .site import build_pyramid, landmark_markers, write_site
+    from .style import STYLES
+
+    city = load_city(args.city)
+    layers = _extract_cached(city, force=args.force)
+    cell_m = args.cell or city.cell_m
+    camera = camera_for(city, cell_m=cell_m, scale=args.scale)
+    print(f"site: {city.config['city']['name']} · "
+          f"{camera.width_px}x{camera.height_px} px · cell {cell_m} m")
+
+    layers = schematize(layers, city.rotation_deg,
+                        road_simplify_m=city.config["schematize"]["road_simplify_m"],
+                        water_simplify_m=city.config["schematize"]["water_simplify_m"],
+                        street_widen_m=city.config["schematize"].get("street_widen_m", 0.0))
+
+    models, superseded = load_models(_landmark_config(city))
+    print("  rendering…")
+    image, stats = paint_render(layers, camera, STYLES[args.style], city.seed,
+                                models=models, superseded=superseded)
+
+    out_dir = city.out / "site"
+    print("  tiling…")
+    pyramid = build_pyramid(image, out_dir, tile_px=args.tile)
+
+    to_crs = Transformer.from_crs("EPSG:4326", city.crs, always_xy=True)
+    markers = landmark_markers(city, camera, to_crs=to_crs)
+
+    across, deep = camera.ground_extent_m()
+    attribution = ["Map data © OpenStreetMap contributors, ODbL."]
+    if "lidar" in city.config:
+        attribution.append(city.config["lidar"]["attribution"])
+
+    # Count over the buildings actually in shot, so this share and the drawn
+    # building count in the same panel describe the same set.
+    in_frame = [b for b in layers.buildings
+                if 0 <= camera.ground(*b.geom.centroid.coords[0])[0] < camera.width_px
+                and 0 <= camera.ground(*b.geom.centroid.coords[0])[1] < camera.height_px]
+    measured = sum(1 for b in in_frame if b.levels_source == "lidar")
+    lidar_share = (f"{measured / len(in_frame) * 100:.0f}% LiDAR-measured"
+                   if in_frame and measured else "")
+
+    index = write_site(
+        out_dir, pyramid, markers,
+        city_name=city.config["city"]["name"],
+        subtitle=f"{across / 1000:.1f} × {deep / 1000:.1f} km at {cell_m:g} m per cell",
+        attribution=attribution,
+        stats=[
+            ("Buildings", f"{stats.buildings:,}"),
+            ("Heights", lidar_share or "tagged/default"),
+            ("Pitched roofs", f"{stats.roofs_tagged:,}"),
+            ("Resolution", f"{pyramid.width:,} × {pyramid.height:,}"),
+            ("Zoom levels", f"{pyramid.max_level + 1}"),
+        ],
+    )
+
+    size_mb = sum(p.stat().st_size for p in (out_dir / "tiles").rglob("*.png")) / 1e6
+    print(f"  {pyramid.tiles} tiles across {pyramid.max_level + 1} levels ({size_mb:.1f} MB)")
+    print(f"  {len(markers)} landmark markers")
+    print(f"  wrote {index}")
+    print(f"\n  serve it:  python -m http.server -d {out_dir} 8000")
+    return 0
+
+
 def cmd_greybox(args) -> int:
     from .greybox import annotate_landmarks, render, save_preview
     from .iso import Camera, solve_frame
@@ -687,6 +758,17 @@ def main(argv: list[str] | None = None) -> int:
     p_frame.add_argument("--annotate", action="store_true")
     p_frame.add_argument("--force", action="store_true", help="re-run extract")
     p_frame.set_defaults(func=cmd_frame)
+
+    p_site = sub.add_parser("site", help="cut a tile pyramid and emit the web viewer")
+    p_site.add_argument("city")
+    p_site.add_argument("--cell", type=float, default=None,
+                        help="override cell size in metres (smaller = more detail)")
+    p_site.add_argument("--scale", type=float, default=None,
+                        help="widen the frame at the same pixels per metre")
+    p_site.add_argument("--tile", type=int, default=256, help="tile size in pixels")
+    p_site.add_argument("--style", default="limerick-day")
+    p_site.add_argument("--force", action="store_true", help="re-run extract")
+    p_site.set_defaults(func=cmd_site)
 
     p_front = sub.add_parser("frontages", help="rank facades by visible wall area")
     p_front.add_argument("city")

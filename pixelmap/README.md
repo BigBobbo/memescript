@@ -46,6 +46,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | `greybox --orientations` | All four quarter turns compared |
 | `frame` | Render the configured frame — the composition of record. `--scale` changes how much city is in shot, `--cell` how finely it is drawn (so speed), `--grey` for grey-box, `--raw` skips snapping |
 | `frontages` | Rank facades by visible wall area; writes `facades.md` |
+| `site` | Cut the frame into a tile pyramid and emit the zoomable web viewer into `out/site/` |
 
 Renders land in `cities/<city>/out/` (gitignored); evidence kept for each gate
 lives in `cities/<city>/gates/`.
@@ -66,8 +67,20 @@ The pipeline never branches on city name.
 
 `fetch` → `lidar` → `extract` → `schematize` → `discretize` → `decorate` → `render` → `compose`
 
-Stages 0–2 and 5 are built. `discretize` and `decorate` are not yet needed —
+Stages 0–2, 5 and 6 are built. `discretize` and `decorate` are not yet needed —
 the renderer draws from schematized vector geometry directly.
+
+`compose` is `pixelmap site`: it cuts the render into a pyramid of 256 px tiles
+and writes a self-contained viewer beside them — deep zoom with the pixels kept
+crisp, clickable landmarks placed through the same camera that drew the frame,
+and the view state in the URL hash so a particular view can be sent to someone.
+Levels halve exactly and reduce with a box filter, the one downscale that
+cannot invent a colour the palette does not have.
+
+```bash
+PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli site limerick --cell 0.9
+python -m http.server -d cities/limerick/out/site 8000
+```
 
 Inside `render`, three modules split by what changes them: `draw3d` is the
 isometric primitives (extrude a ring, crenellate it, put a spire on it),

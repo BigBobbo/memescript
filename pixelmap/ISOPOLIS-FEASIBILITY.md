@@ -100,15 +100,22 @@ Boundaries (electoral divisions, city boundary) are on data.gov.ie under open
 licences, filling the role SF's neighbourhood polygons play for Isopolis's
 clickable regions.
 
-## 3. Is the interactive product feasible? — Yes, and it is data-independent
+## 3. Is the interactive product feasible? — Yes, and it is built
 
 Everything that makes Isopolis feel alive — the tile pyramid, deep zoom,
 clickable landmarks, neighbourhood outlines, tours, URL-hash share links,
 ambient sound — consumes **one big image plus small JSON**. None of it cares
-whether the image came from an ML model or our renderer. The current locked
-frame is already 27,036 × 8,768 px (~237 MP); cut into a tile pyramid that is a
-static site, hostable anywhere, with landmark anchors already in
-`landmarks.toml` to drive annotations.
+whether the image came from an ML model or our renderer.
+
+`pixelmap site` now does this: it renders the frame, cuts it into 256 px tiles
+across a halving pyramid, and writes a self-contained viewer beside them. At
+0.9 m per cell that is 583 tiles over 7 levels, 7.9 MB, with 14 landmark
+markers placed by pushing `landmarks.toml` anchors through the same camera that
+drew the frame — so a marker cannot drift off the building under it. Drag to
+pan, wheel to zoom, click a landmark, and the view state lives in the URL hash
+so a view can be sent to someone. The locked print frame at 0.3 m per cell is
+27,036 × 8,768 px (~237 MP) and needs only a longer render; the tiling and the
+viewer do not change.
 
 ## Recommendation
 
@@ -120,13 +127,17 @@ Two viable routes, one recommended:
   and a knowing decision about Google's terms. It also throws away the
   schematize work: ML output is organic, not grid-crisp.
 
-- **Route B — finish what's here, then build the viewer** (recommended). The
-  procedural renderer already produces consistent pixel art at gigapixel-class
-  resolution from fully open data. Of the two missing Isopolis ingredients,
-  (1) real heights is **done** — `pixelmap lidar`, one new stage, CC-BY data —
-  leaving (2) the web viewer, a compose/serve stage needing no new data at all.
-  Nothing about Limerick's data limits this route; it is strictly an
-  engineering backlog.
+- **Route B — finish what's here, then build the viewer** (recommended, and
+  now done). The procedural renderer already produces consistent pixel art at
+  gigapixel-class resolution from fully open data. Both missing Isopolis
+  ingredients are built: real heights (`pixelmap lidar`, CC-BY data) and the
+  zoomable viewer (`pixelmap site`). Nothing about Limerick's data limited this
+  route.
+
+What is left is content rather than capability: tours, neighbourhood
+boundaries from the CSO/OSi electoral divisions, per-building info on click
+(OSM already carries the names and addresses), and a full-resolution render at
+0.3 m per cell.
 
 The honest gap between an eventual Limerick page and sf.isopolis.city is
 texture richness at extreme zoom: an ML model hallucinates plausible detail
