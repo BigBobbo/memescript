@@ -578,8 +578,16 @@ def cmd_site(args) -> int:
     return 0
 
 
+#: Long edge of a composition study, in pixels. These renders exist to judge
+#: what is in shot, not detail, so they are sized for the eye and the clock
+#: rather than for the printer — the print canvas is 10,800 px wide and six of
+#: those in a contact sheet is minutes of rendering to answer a framing question.
+STUDY_WIDTH_PX = 2400
+
+
 def cmd_greybox(args) -> int:
     from .greybox import annotate_landmarks, render, save_preview
+    from .frame import true_storey_px
     from .iso import Camera, solve_frame
     from .plots import contact_sheet
     from pyproj import Transformer
@@ -589,14 +597,18 @@ def cmd_greybox(args) -> int:
 
     transformer = Transformer.from_crs("EPSG:4326", city.crs, always_xy=True)
     landmarks = _load_landmarks(city)
-    anchor = city.config["anchors"]["centre"]
+    # Fallback centre for a city with no tier-1 landmarks; the frame anchor is
+    # the same point the real composition is built around.
+    anchor = city.config["frame"]["anchor"]
     default_x, default_y = transformer.transform(anchor["lon"], anchor["lat"])
 
-    base_w = round(city.config["print"]["width_cm"] / 2.54 * city.config["print"]["dpi"]
-                   / city.config["print"]["upscale"])
-    base_h = round(city.config["print"]["height_cm"] / 2.54 * city.config["print"]["dpi"]
-                   / city.config["print"]["upscale"])
-    storey_px = city.config["render"]["storey_px"]
+    aspect = city.config["print"]["height_cm"] / city.config["print"]["width_cm"]
+    base_w = STUDY_WIDTH_PX
+    base_h = round(STUDY_WIDTH_PX * aspect)
+    # Height in pixels per storey follows the cell size, so it can only be known
+    # once a variant has solved for one. The configured cell gives the nominal
+    # value the headroom reservation is scaled from.
+    storey_px = true_storey_px(city.cell_m) * city.config["render"]["height_exaggeration"]
     rotation = args.rotation if args.rotation is not None else city.rotation_deg
 
     def fitted(width: int, height: int, rot: float, *, exclude: set[str] = frozenset(),
