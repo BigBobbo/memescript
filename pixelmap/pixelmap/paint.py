@@ -29,6 +29,7 @@ from .draw3d import outward_normal_fn, rng as _rng, shade as _shade, wall_rect
 from .extract import Building, Layers, Road
 from .iso import CELL_W, Camera
 from .landmarks import POINT_RECIPES, Model, masses_for, square
+from .props import draw_prop
 from .monuments import draw_landmark
 from .style import Facade, Style, facade_for, parse_colour, roof_for
 
@@ -58,6 +59,7 @@ class PaintStats:
     bridges: int = 0
     landmarks: int = 0
     landmark_masses: int = 0
+    props: int = 0
     #: Which models actually made it onto the canvas — a landmark that is
     #: configured but out of frame should say so rather than vanish quietly.
     landmarks_drawn: set = field(default_factory=set)
@@ -232,7 +234,47 @@ def _draw_roof(
     ]
     for face, lit in sorted(faces, key=lambda f: sum(q[1] for q in f[0]) / len(f[0])):
         draw.polygon(face, fill=_shade(roof_colour, lit), outline=outline)
+
+    _draw_chimneys(draw, camera, building, style, seed, ra, rb)
     return True
+
+
+#: Building kinds that carry a chimney. A warehouse does not.
+_CHIMNEYED = {
+    "house", "residential", "terrace", "semidetached_house", "detached",
+    "bungalow", "cottage", "apartments", "yes",
+}
+
+
+def _draw_chimneys(draw: ImageDraw.ImageDraw, camera: Camera, building: Building,
+                   style: Style, seed: int,
+                   ra: tuple[float, float], rb: tuple[float, float]) -> None:
+    """Stacks at the ends of a ridge.
+
+    A terrace shares its stacks with its neighbours, so they belong at the
+    gable ends rather than in the middle of the roof. Below a few pixels a
+    chimney is a smudge on the ridge line, so it simply is not drawn — at print
+    resolution it appears on its own.
+    """
+    if building.kind not in _CHIMNEYED:
+        return
+    metre = _metre_px(camera)
+    width = 0.9 * 2 * CELL_W / (math.sqrt(2) * camera.cell_m)
+    height = 1.5 * metre
+    if width < 2.0 or height < 3.0:
+        return
+
+    for i, (x, y) in enumerate((ra, rb)):
+        # Not every gable end has one, but the choice is stable per building.
+        if _rng(building.osm_id, seed, f"chimney{i}") < 0.25:
+            continue
+        left, right = x - width / 2, x + width / 2
+        draw.rectangle([left, y - height, right, y], fill=style.chimney)
+        # The pot, once there are pixels to spare for it.
+        if height >= 6.0:
+            draw.rectangle([left + width * 0.2, y - height - max(1.0, height * 0.22),
+                            right - width * 0.2, y - height],
+                           fill=style.chimney_pot)
 
 
 def fill_areas(
@@ -436,7 +478,8 @@ def draw_building(
 def render(layers: Layers, camera: Camera, style: Style, seed: int,
            *, min_area_m2: float = 10.0,
            models: dict[str, Model] | None = None,
-           superseded: set[str] | None = None) -> tuple[Image.Image, PaintStats]:
+           superseded: set[str] | None = None,
+           props: list | None = None) -> tuple[Image.Image, PaintStats]:
     """Paint the whole scene."""
     img = Image.new("RGB", (camera.width_px, camera.height_px), style.sky)
     draw = ImageDraw.Draw(img)
@@ -571,9 +614,20 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
         queue.append((base, "landmark", masses))
         stats.landmarks_drawn.add(osm_id)
 
+    # Props join the same queue rather than being painted over the top: a tree
+    # in front of a terrace must cover it, and one behind it must not.
+    for prop in props or ():
+        sx, sy = camera.ground(prop.x, prop.y)
+        if not (-slack_px <= sx <= camera.width_px + slack_px
+                and -(slack_px + head_px) <= sy <= camera.height_px + slack_px):
+            continue
+        queue.append((sy, "prop", prop))
+
     for _, kind, item in sorted(queue, key=lambda t: t[0]):
         if kind == "building":
             draw_building(draw, camera, item, style, seed, stats)
+        elif kind == "prop":
+            stats.props += int(draw_prop(draw, camera, item, style, seed))
         else:
             draw_landmark(draw, img, camera, item, style, stats)
 

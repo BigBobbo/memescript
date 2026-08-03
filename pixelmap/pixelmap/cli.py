@@ -368,6 +368,16 @@ def cmd_bearings(args) -> int:
     return 0
 
 
+def _decorate(city: City, layers):
+    """Place the charm layer, if the city asks for one."""
+    from .decorate import decorate
+
+    cfg = city.config.get("decorate")
+    if cfg is not None and not cfg.get("enabled", True):
+        return []
+    return decorate(layers, seed=city.seed, config=cfg or {})
+
+
 def _landmark_config(city: City) -> dict:
     """The city's landmarks.toml — anchors under `landmark`, models under `model`."""
     import tomllib
@@ -467,8 +477,10 @@ def cmd_frame(args) -> int:
         from .style import STYLES
 
         models, superseded = load_models(_landmark_config(city))
+        props = [] if args.bare else _decorate(city, layers)
         img, stats = paint_render(layers, camera, STYLES[args.style], city.seed,
-                                  models=models, superseded=superseded)
+                                  models=models, superseded=superseded,
+                                  props=props)
         drawn = stats.buildings
         print(f"  painted {stats.buildings} buildings · "
               f"{stats.roofs_tagged} pitched roofs · "
@@ -535,9 +547,10 @@ def cmd_site(args) -> int:
                         street_widen_m=city.config["schematize"].get("street_widen_m", 0.0))
 
     models, superseded = load_models(_landmark_config(city))
+    props = _decorate(city, layers)
     print("  rendering…")
     image, stats = paint_render(layers, camera, STYLES[args.style], city.seed,
-                                models=models, superseded=superseded)
+                                models=models, superseded=superseded, props=props)
 
     out_dir = city.out / "site"
     print("  tiling…")
@@ -772,6 +785,8 @@ def main(argv: list[str] | None = None) -> int:
     p_frame.add_argument("--raw", action="store_true",
                          help="skip schematize and draw true OSM geometry")
     p_frame.add_argument("--annotate", action="store_true")
+    p_frame.add_argument("--bare", action="store_true",
+                         help="skip the charm layer (no trees, boats or swans)")
     p_frame.add_argument("--force", action="store_true", help="re-run extract")
     p_frame.set_defaults(func=cmd_frame)
 

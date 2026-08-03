@@ -4,11 +4,13 @@ Turns OpenStreetMap data into a pixel-art isometric city map, built for print
 and framing. Limerick first; a second city is meant to be a config folder, not a
 second project.
 
-**Status:** Stages 0-2 and 5 are built — fetch, extract, schematize, and a
-painted renderer with pitched roofs, windowed facades, shopfronts, walled quays
-and raised bridge decks. Building heights are measured rather than assumed:
-open 2011 LiDAR gives 93% of footprints a height, and half of them turn out not
-to be the 2 storeys the pipeline used to assume. Streets, banks and footprints are snapped onto the
+**Status:** Stages 0-2 and 4-6 are built — fetch, LiDAR heights, extract,
+schematize, decorate, a painted renderer with pitched roofs, windowed facades,
+shopfronts, walled quays and raised bridge decks, and a zoomable web viewer.
+Building heights are measured rather than assumed: open 2011 LiDAR gives 93% of
+footprints a height, and half of them turn out not to be the 2 storeys the
+pipeline used to assume. The charm layer plants 19,000
+trees, floats boats and swans on the river, and puts chimneys on the terraces. Streets, banks and footprints are snapped onto the
 eight directions that render as crisp isometric lines (70% of road length, up
 from 11%). Buildings are drawn at true isometric height with streets widened
 3.5 m per side instead. Framed with the Shannon low and west on the right,
@@ -18,8 +20,10 @@ Castle and Colbert. Eight landmarks are modelled from their own OSM footprints
 rather than drawn as sprites: the castle's crenellated curtain wall and drum
 towers, St John's 90 m spire, St Mary's battlemented tower, the Milk Market
 canopy, Colbert's train shed, the Hunt Museum, Riverpoint and the Treaty Stone.
-Trees, boats and the compose stage are next. See [`PLAN.md`](PLAN.md) for the full design and
-[`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and locked.
+Title, border and legend are next, then the print master. See [`PLAN.md`](PLAN.md)
+for the full design, [`M1-FINDINGS.md`](M1-FINDINGS.md) for what M1 measured and
+locked, and [`ISOPOLIS-FEASIBILITY.md`](ISOPOLIS-FEASIBILITY.md) for how this
+compares with the ML-generated route.
 
 ## Setup
 
@@ -44,7 +48,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |
 | `greybox --study` | Six framing variants as a contact sheet |
 | `greybox --orientations` | All four quarter turns compared |
-| `frame` | Render the configured frame — the composition of record. `--scale` changes how much city is in shot, `--cell` how finely it is drawn (so speed), `--grey` for grey-box, `--raw` skips snapping |
+| `frame` | Render the configured frame — the composition of record. `--scale` changes how much city is in shot, `--cell` how finely it is drawn (so speed), `--grey` for grey-box, `--raw` skips snapping, `--bare` drops the charm layer |
 | `frontages` | Rank facades by visible wall area; writes `facades.md` |
 | `site` | Cut the frame into a tile pyramid and emit the zoomable web viewer into `out/site/` |
 
@@ -67,8 +71,15 @@ The pipeline never branches on city name.
 
 `fetch` → `lidar` → `extract` → `schematize` → `discretize` → `decorate` → `render` → `compose`
 
-Stages 0–2, 5 and 6 are built. `discretize` and `decorate` are not yet needed —
-the renderer draws from schematized vector geometry directly.
+Stages 0–2 and 4–6 are built. `discretize` is not yet needed — the renderer
+draws from schematized vector geometry directly.
+
+`decorate` is the charm layer: street trees, park and woodland planting, boats
+and swans on the Shannon, chimney stacks on the terraces. None of it is in OSM
+— street trees are barely mapped in Ireland and swans not at all — so props are
+placed procedurally from the city's seed and are identical run to run. Density
+is per green kind, because most of Limerick's "green" is verge and meadow
+rather than parkland. `frame --bare` renders without it.
 
 `compose` is `pixelmap site`: it cuts the render into a pyramid of 256 px tiles
 and writes a self-contained viewer beside them — deep zoom with the pixels kept

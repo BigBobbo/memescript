@@ -70,6 +70,19 @@ class Style:
     materials: dict[str, Facade] = field(default_factory=dict)
     #: The ground inside a walled enclosure — cobbles, not roof.
     court: tuple[int, int, int] = (176, 172, 158)
+    #: Props. Foliage is given its own ramp rather than reusing the park fill:
+    #: a canopy drawn in the colour of the grass it stands on disappears.
+    canopy: tuple[tuple[int, int, int], ...] = (
+        (86, 132, 70), (104, 148, 78), (72, 116, 62),
+    )
+    trunk: tuple[int, int, int] = (78, 62, 48)
+    #: Chimney stacks. Limerick's terraces are brick-stacked over slate, and the
+    #: stack is the one thing on a roofline that says "someone lives here".
+    chimney: tuple[int, int, int] = (146, 104, 88)
+    chimney_pot: tuple[int, int, int] = (94, 76, 72)
+    hull: tuple[int, int, int] = (58, 62, 70)
+    hull_light: tuple[int, int, int] = (214, 210, 200)
+    swan: tuple[int, int, int] = (242, 242, 238)
     #: Weight of the outline in pixels. 0 disables it.
     outline_px: int = 1
 

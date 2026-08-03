@@ -157,3 +157,48 @@ calibration_min_samples = 100
 # than being flattened.
 min_height_m = 2.0
 min_pixels   = 1
+
+[decorate]
+# The charm layer — trees, boats, swans. None of it is in OSM: street trees are
+# barely mapped in Ireland and swans not at all, so props are placed
+# procedurally from `seed` and are reproducible run to run.
+
+# Streets worth lining. Every service road and car-park aisle would bury the
+# city under canopy; `street_share` then lines only some of the qualifying
+# streets, decided per street so a street is lined for its whole length or not
+# at all.
+street_classes   = ["primary", "secondary", "tertiary", "residential"]
+street_spacing_m = 20.0
+street_offset_m  = 2.2
+street_share     = 0.55
+
+# River life. Boats sit inside a deep inward buffer so they are in navigable
+# water; swans in the ring between that buffer and the bank, which is where
+# they actually are.
+boat_spacing_m   = 220.0
+boat_clearance_m = 26.0
+swan_spacing_m   = 90.0
+
+# Anything green with no entry below falls back to this.
+default_spacing_m = 26.0
+
+# Trees per green, in metres between trunks. Not every green is a park: OSM
+# gives Limerick 134 ha of `grass`, 173 ha of `meadow` and 75 ha of `grassland`
+# against 62 ha of actual park, so planting them all at park density buried the
+# city under 37,000 trees. Woodland gets a thicket, parks an avenue, open ground
+# the occasional standing tree. Pitches and golf courses are subtracted
+# entirely — they are usually mapped inside a park, so skipping them is not
+# enough, they have to be cut out of whatever contains them.
+[decorate.spacing_by_kind]
+wood = 8.0
+forest = 8.0
+scrub = 11.0
+park = 14.0
+garden = 12.0
+cemetery = 15.0
+village_green = 16.0
+common = 18.0
+grass = 34.0
+grassland = 34.0
+meadow = 40.0
+recreation_ground = 30.0
