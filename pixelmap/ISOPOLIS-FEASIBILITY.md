@@ -50,8 +50,8 @@ footprints in the 4.4 × 4.1 km fetch window, roads, water, rail, green, 148
 POIs. The known weakness is heights — few `building:levels` tags, so we default
 to 2 storeys and hand-model the eight landmarks.
 
-New finding: **open LiDAR covers Limerick city**, which can close the height
-gap. Queried the GSI download services over the city-centre envelope
+New finding: **open LiDAR covers Limerick city**, and it closes the height gap.
+Queried the GSI download services over the city-centre envelope
 (ITM 556000–559000 E, 655000–658500 N):
 
 | Dataset | Resolution | Captured | Licence |
@@ -64,10 +64,37 @@ gap. Queried the GSI download services over the city-centre envelope
 centre — 2 m is what exists.) Tiles are direct ZIP downloads from
 `gsi.geodata.gov.ie`, e.g. `OPW_949`–`OPW_973` for the NASC set.
 
-2 m DSM−DTM medians per footprint give per-building height estimates good to
-roughly a storey — coarse for architecture, fine for pixel-art massing, and it
-would replace the flat `default_levels = 2` skyline with the real one. Vintage
-(2006–2011) means post-2011 buildings keep their tag-or-default height.
+**This is now built and measured** — see `pixelmap lidar` and
+[analysis/heights.md](cities/limerick/analysis/heights.md). 20,364 of 21,949
+footprints (92.8%) got a height, and the flat skyline is gone: 51% of them are
+not 2 storeys.
+
+One prediction in the first draft of this note was wrong. Taking the *median*
+of DSM−DTM per footprint, as suggested above, measures badly at 2 m — a terrace
+is three pixels across and a pixel on the outline averages roof with pavement,
+so low and middle statistics sample the mixing rather than the building. The
+contamination is one-directional (mixed pixels always read low), so the working
+method reads a *high* percentile and calibrates it back down:
+
+    roof_85 = storey_m * levels + pitch_m
+
+fitted per city against the buildings OSM has already tagged. Limerick fits
+2.93 m a storey under 1.25 m of roof pitch — the intercept being the roof's own
+height above the eave, which is why the relation is physical rather than a
+curve fit. Scored on tagged buildings held out of the fit, and against the flat
+default it replaces:
+
+| | LiDAR | Flat 2-storey default |
+|---|---|---|
+| Within half a storey (all 1,916) | 95% | 88% |
+| Within half a storey (the 225 that aren't 2-storey) | 82% | 0% |
+| Mean absolute error (those 225) | 0.46 | 1.30 |
+
+The totals understate it because most tagged buildings really are 2 storeys, so
+the flat default scores well on the bulk; the second row is where a skyline is
+won or lost. Vintage (2011) means post-2011 buildings read as bare ground, fail
+the minimum-height test and keep their tag-or-default height rather than being
+flattened.
 
 Boundaries (electoral divisions, city boundary) are on data.gov.ie under open
 licences, filling the role SF's neighbourhood polygons play for Isopolis's
@@ -95,11 +122,11 @@ Two viable routes, one recommended:
 
 - **Route B — finish what's here, then build the viewer** (recommended). The
   procedural renderer already produces consistent pixel art at gigapixel-class
-  resolution from fully open data. The missing Isopolis ingredients are (1)
-  real heights — solvable with the CC-BY LiDAR above, one new pipeline stage —
-  and (2) the web viewer — a compose/serve stage, no new data at all. Nothing
-  about Limerick's data limits this route; it is strictly an engineering
-  backlog.
+  resolution from fully open data. Of the two missing Isopolis ingredients,
+  (1) real heights is **done** — `pixelmap lidar`, one new stage, CC-BY data —
+  leaving (2) the web viewer, a compose/serve stage needing no new data at all.
+  Nothing about Limerick's data limits this route; it is strictly an
+  engineering backlog.
 
 The honest gap between an eventual Limerick page and sf.isopolis.city is
 texture richness at extreme zoom: an ML model hallucinates plausible detail

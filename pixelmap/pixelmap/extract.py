@@ -85,6 +85,12 @@ class Building:
     shop: str | None = None
     housenumber: str | None = None
     street: str | None = None
+    #: Where `levels` came from: "tag", "lidar" or "default". Tags win over
+    #: LiDAR — a surveyed storey count beats a 2 m raster inferring one.
+    levels_source: str = "default"
+    #: Metres from ground to ridge, when LiDAR measured it. The walls stop at
+    #: `levels`; this is how tall the roof on top of them should reach.
+    ridge_m: float | None = None
 
 
 @dataclass
@@ -511,6 +517,43 @@ def bounds(layers: Layers) -> tuple[float, float, float, float]:
         raise ValueError("no geometry extracted")
     merged = unary_union([g.envelope for g in geoms])
     return merged.bounds
+
+
+def apply_lidar_heights(layers: Layers, survey, *, storey_m: float = 3.2,
+                        max_levels: float = 60.0) -> dict[str, int]:
+    """Replace guessed storey counts with measured ones. Returns a tally by source.
+
+    Precedence is tag > LiDAR > default. A mapper who counted storeys from the
+    pavement is more reliable than a 2 m raster, and overriding them would also
+    throw away the hand-checked landmark heights.
+
+    A building the LiDAR could not read — built after the survey, or too small
+    to catch a return above the minimum height — keeps whatever it had.
+    """
+    calibration = survey.calibration
+
+    def to_levels(height) -> float:
+        if calibration is not None:
+            return calibration.levels(height.roof_m)
+        # Without a fit there is nothing to subtract the roof pitch with, so
+        # this is the cruder reading the calibration exists to improve on.
+        return height.roof_m / storey_m
+
+    tally = {"tag": 0, "lidar": 0, "default": 0}
+    for building in layers.buildings:
+        if building.levels_tagged:
+            building.levels_source = "tag"
+        else:
+            measured = survey.heights.get(building.osm_id)
+            if measured is not None:
+                levels = max(1.0, min(max_levels, to_levels(measured)))
+                # Half a storey is the finest step 2 m data can justify, and it
+                # keeps a bungalow from rounding up into a two-storey house.
+                building.levels = round(levels * 2) / 2
+                building.ridge_m = measured.ridge_m
+                building.levels_source = "lidar"
+        tally[building.levels_source] += 1
+    return tally
 
 
 def tagged_levels_share(layers: Layers) -> float:

@@ -117,3 +117,43 @@ water_simplify_m = 45.0
 # street by twice this. Replaces height exaggeration as the way to keep facades
 # clear of the row in front — a long-standing liberty in isometric city art.
 street_widen_m = 3.5
+
+[lidar]
+# Open LiDAR heights. OSM gives Limerick almost no heights — 6% of footprints
+# carry building:levels and none carry height — so without this the whole city
+# renders at the 2-storey default and the skyline is flat.
+#
+# The OPW National Aerial Survey Contract set covers the entire fetch window in
+# nine 2 km tiles at 2 m, flown 2011. The newer 1 m GSI surveys do not reach
+# the city centre; 2 m is the best that exists here, and at 2 m a 6 m terrace is
+# three pixels across — enough for a storey-accurate answer, not for detail.
+service = "https://gsi.geodata.gov.ie/server/rest/services/Lidar/IE_GSI_LiDAR_Coverage_OPW_NASC_IE26_ITM/MapServer/3"
+srid    = 2157
+attribution = "Contains Irish Public Sector Data (Geological Survey Ireland & the Office of Public Works) licensed under a Creative Commons Attribution 4.0 International (CC BY 4.0) licence."
+
+# Sampling. The renderer wants the EAVE, but a low percentile does not measure
+# it at 2 m: a pixel on the outline averages roof with pavement, so the low end
+# of the spread is contamination rather than eaves. Swept against the tagged
+# buildings, the 20th percentile correlates at r=0.60 and implies an impossible
+# 2.0 m storey, the 85th at r=0.76 and a believable 2.9 m. The eave is recovered
+# from this reading by the fitted calibration instead — see lidar.py.
+roof_percentile  = 85.0
+ridge_percentile = 97.0
+
+# Erosion is off. Edge pixels only ever read low, so the high percentile above
+# already ignores them, and shrinking a three-pixel terrace costs more samples
+# than the contamination does (r=0.763 unroded against 0.749 at 1 m).
+erode_m = 0.0
+
+# Calibration is fitted per city rather than configured, so a second city does
+# not need its storey height hand-tuned. Towers are excluded from the fit and
+# left to be predicted: mappers tag the tall, and a handful of 15-storey
+# outliers would otherwise lever the line that 3,000 terraces depend on.
+calibration_max_levels  = 6.0
+calibration_min_samples = 100
+
+# Below this, a reading is pavement bleed, a demolished building, or one built
+# after the 2011 survey. Such buildings keep their tag or the default rather
+# than being flattened.
+min_height_m = 2.0
+min_pixels   = 1

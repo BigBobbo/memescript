@@ -16,24 +16,47 @@ from pathlib import Path
 from .config import City, load_city
 
 
+def _apply_heights(city: City, layers) -> None:
+    """Fold measured LiDAR heights in, if the stage has been run.
+
+    Kept out of `extract` so the OSM snapshot and the height survey stay
+    separable: re-running one must not invalidate the other. Applying is
+    idempotent — it recomputes from the heights file rather than accumulating.
+    """
+    from .extract import apply_lidar_heights
+    from .iso import STOREY_M
+    from .lidar import load_survey
+
+    survey = load_survey(city.cache)
+    if not survey:
+        return
+    tally = apply_lidar_heights(layers, survey, storey_m=STOREY_M)
+    print(f"  heights: {tally['lidar']} from LiDAR, {tally['tag']} tagged, "
+          f"{tally['default']} default")
+
+
 def _extract_cached(city: City, *, force: bool = False):
     """Extract layers, caching the projected result between runs."""
     from .extract import extract
 
     cache_path = city.cache / "layers.pickle"
     raw_dir = city.cache / "raw"
+    # The pickle holds the OSM extract as fetched; heights are folded in after
+    # loading, so a re-run of the survey needs no cache invalidation.
     if cache_path.exists() and not force:
         newest_raw = max((p.stat().st_mtime for p in raw_dir.glob("*.json*")), default=0)
         if cache_path.stat().st_mtime >= newest_raw:
             with cache_path.open("rb") as fh:
                 layers = pickle.load(fh)
             print(f"  layers: cached ({layers.summary()})")
+            _apply_heights(city, layers)
             return layers
 
     layers = extract(raw_dir, city.crs, bbox=city.bbox)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     with cache_path.open("wb") as fh:
         pickle.dump(layers, fh, protocol=pickle.HIGHEST_PROTOCOL)
+    _apply_heights(city, layers)
     return layers
 
 
@@ -44,6 +67,211 @@ def cmd_fetch(args) -> int:
     print(f"fetch: {city.config['city']['name']}  bbox={city.bbox}")
     fetch_city(city.config, city.cache, force=args.force)
     return 0
+
+
+def cmd_lidar(args) -> int:
+    from .lidar import (HeightModel, Survey, calibrate, discover_tiles,
+                        download_tiles, measure, save_heights)
+
+    city = load_city(args.city)
+    if "lidar" not in city.config:
+        print(f"error: {args.city} has no [lidar] section in city.toml", file=sys.stderr)
+        return 2
+
+    print(f"lidar: {city.config['city']['name']}")
+    layers = _extract_cached(city)
+    if not layers.buildings:
+        print("error: no buildings to measure", file=sys.stderr)
+        return 1
+
+    # Footprints only, and deliberately not `extract.bounds`: Overpass returns
+    # the Shannon as whole polygons spanning 18 km, so the all-layer bounds
+    # would drag in 16 tiles and a mostly empty 440 MB mosaic to sample a city
+    # that fits in seven.
+    boxes = [b.geom.bounds for b in layers.buildings]
+    pad = 200.0
+    window = (min(b[0] for b in boxes) - pad, min(b[1] for b in boxes) - pad,
+              max(b[2] for b in boxes) + pad, max(b[3] for b in boxes) + pad)
+    print(f"  window {window[2] - window[0]:.0f} x {window[3] - window[1]:.0f} m")
+
+    print("  discovering tiles…")
+    tiles = discover_tiles(city.config, window)
+    if not tiles:
+        print("error: no LiDAR tiles cover this city", file=sys.stderr)
+        return 1
+    captured = sorted({t.captured for t in tiles})
+    print(f"  {len(tiles)} tiles at {min(t.resolution for t in tiles):g} m, "
+          f"captured {', '.join(captured)}")
+
+    paths = download_tiles(tiles, city.cache, force=args.force)
+    model = HeightModel.from_tiles(tiles, paths)
+
+    print(f"  sampling {len(layers.buildings)} footprints…")
+    heights = measure(layers.buildings, model, city.config)
+    got = len(heights) / max(1, len(layers.buildings))
+    print(f"  {len(heights)} of {len(layers.buildings)} read ({got * 100:.1f}%)")
+
+    calibration = calibrate(layers.buildings, heights, city.config)
+    if calibration is not None:
+        print(f"  calibration: {calibration.storey_m:.2f} m per storey under "
+              f"{calibration.pitch_m:.2f} m of roof "
+              f"(r={calibration.correlation:.2f}, n={calibration.samples})")
+
+    survey = Survey(heights=heights, calibration=calibration)
+    path = save_heights(survey, city.config, tiles, city.cache)
+    print(f"  wrote {path.relative_to(city.dir)} "
+          f"({path.stat().st_size / 1e3:.0f} kB)")
+
+    _report_heights(city, layers, survey)
+    return 0
+
+
+def _report_heights(city: City, layers, survey) -> None:
+    """Check the survey against the buildings whose storeys OSM already knows.
+
+    Tagged buildings are the only ground truth available, and the calibration
+    was fitted on them, so quoting the fit's own residuals as accuracy would be
+    marking its own homework. The split below is therefore held out: the fit is
+    re-run on half the tagged buildings and scored on the half it never saw.
+    """
+    import statistics
+
+    from .lidar import calibrate
+
+    tagged = [b for b in layers.buildings
+              if b.levels_tagged and b.osm_id in survey.heights]
+    if not tagged:
+        print("  no tagged buildings to validate against")
+        return
+
+    # Split by parity of a hash rather than of position, so neighbouring
+    # terraces do not all land on the same side. crc32, not hash(): Python
+    # salts string hashing per process, which would reshuffle the split on
+    # every run and make the number below unreproducible.
+    import zlib
+
+    def side(osm_id: str) -> int:
+        return zlib.crc32(osm_id.encode()) % 2
+
+    train = [b for b in tagged if side(b.osm_id) == 0]
+    test = [b for b in tagged if side(b.osm_id) == 1]
+    held_out = calibrate(train, survey.heights, city.config, log=lambda *_: None)
+
+    default_levels = float(city.config["render"].get("default_levels", 2))
+    errors, baseline_errors = [], []
+    if held_out is not None:
+        for building in test:
+            predicted = held_out.levels(survey.heights[building.osm_id].roof_m)
+            # Round as the pipeline does, so the score measures what is drawn.
+            predicted = round(max(1.0, predicted) * 2) / 2
+            errors.append(predicted - building.levels)
+            baseline_errors.append(default_levels - building.levels)
+
+    lines = [
+        "# LiDAR heights — validation",
+        "",
+        f"Source: {city.config['lidar']['attribution']}",
+        "",
+        f"- Footprints sampled: **{len(layers.buildings)}**",
+        f"- Read by LiDAR: **{len(survey.heights)}** "
+        f"({len(survey.heights) / max(1, len(layers.buildings)) * 100:.1f}%)",
+        f"- Tagged and read, usable as ground truth: **{len(tagged)}**",
+        "",
+    ]
+
+    if survey.calibration is not None:
+        c = survey.calibration
+        lines += [
+            "## Calibration",
+            "",
+            "Fitted on tagged buildings as `roof_85 = storey_m * levels + pitch_m`.",
+            "",
+            "| Term | Value |",
+            "|---|---|",
+            f"| Metres per storey | {c.storey_m:.2f} |",
+            f"| Roof pitch above eave | {c.pitch_m:.2f} m |",
+            f"| Correlation | {c.correlation:.3f} |",
+            f"| Buildings fitted | {c.samples} |",
+            "",
+        ]
+
+    if errors:
+        def stats(values: list[float]) -> tuple[float, float, float]:
+            absolute = sorted(abs(v) for v in values)
+            return (sum(1 for a in absolute if a <= 0.5) / len(absolute),
+                    sum(1 for a in absolute if a <= 1.0) / len(absolute),
+                    statistics.fmean(absolute))
+
+        within_half, within_one, mae = stats(errors)
+        base_half, base_one, base_mae = stats(baseline_errors)
+
+        # The comparison that matters is against the flat default this stage
+        # replaces, not against nothing: most tagged buildings are 2 storeys,
+        # so "always 2" already scores well and a bare accuracy figure flatters.
+        odd = [e for e, b in zip(errors, baseline_errors) if b != 0]
+        odd_base = [b for b in baseline_errors if b != 0]
+
+        print(f"  held-out validation on {len(errors)} buildings: "
+              f"median error {statistics.median(errors):+.2f} storeys, "
+              f"{within_half * 100:.0f}% within half a storey "
+              f"(flat default: {base_half * 100:.0f}%)")
+        lines += [
+            "## Held-out accuracy",
+            "",
+            f"The calibration was re-fitted on {len(train)} tagged buildings and",
+            f"scored on the {len(errors)} it never saw, rounded to half storeys as",
+            "the renderer draws them. Error is predicted minus tagged storeys.",
+            "",
+            f"| Statistic | LiDAR | Flat default of {default_levels:g} |",
+            "|---|---|---|",
+            f"| Median error | {statistics.median(errors):+.2f} "
+            f"| {statistics.median(baseline_errors):+.2f} |",
+            f"| Mean absolute error | {mae:.2f} | {base_mae:.2f} |",
+            f"| Within half a storey | {within_half * 100:.0f}% "
+            f"| {base_half * 100:.0f}% |",
+            f"| Within one storey | {within_one * 100:.0f}% | {base_one * 100:.0f}% |",
+            "",
+        ]
+        if odd:
+            odd_half, _, odd_mae = stats(odd)
+            odd_base_half, _, odd_base_mae = stats(odd_base)
+            lines += [
+                f"Most tagged buildings really are {default_levels:g} storeys, so the flat",
+                "default scores well on the bulk and the totals above understate the",
+                f"difference. On the {len(odd)} test buildings that are *not*",
+                f"{default_levels:g} storeys — exactly the ones a flat default gets wrong:",
+                "",
+                f"| Statistic | LiDAR | Flat default |",
+                "|---|---|---|",
+                f"| Mean absolute error | {odd_mae:.2f} | {odd_base_mae:.2f} |",
+                f"| Within half a storey | {odd_half * 100:.0f}% "
+                f"| {odd_base_half * 100:.0f}% |",
+                "",
+            ]
+        lines += [
+            "Tagged buildings are a biased sample — mappers tag the tall and the",
+            "notable — so this flatters the anonymous terraces slightly.",
+            "",
+        ]
+
+    by_id = {b.osm_id: b for b in layers.buildings}
+    lines += [
+        "## Tallest ridges found",
+        "",
+        "| Building | Roof m | Ridge m | Pixels |",
+        "|---|---|---|---|",
+    ]
+    for osm_id, height in sorted(survey.heights.items(),
+                                 key=lambda kv: -kv[1].ridge_m)[:12]:
+        building = by_id.get(osm_id)
+        label = building.name if building and building.name else osm_id
+        lines.append(f"| {label} | {height.roof_m:.1f} | {height.ridge_m:.1f} "
+                     f"| {height.pixels} |")
+
+    city.analysis.mkdir(parents=True, exist_ok=True)
+    out = city.analysis / "heights.md"
+    out.write_text("\n".join(lines) + "\n")
+    print(f"  wrote {out.relative_to(city.dir)}")
 
 
 def cmd_bearings(args) -> int:
@@ -417,6 +645,12 @@ def main(argv: list[str] | None = None) -> int:
     p_fetch.add_argument("city")
     p_fetch.add_argument("--force", action="store_true", help="re-fetch cached layers")
     p_fetch.set_defaults(func=cmd_fetch)
+
+    p_lidar = sub.add_parser("lidar", help="measure building heights from open LiDAR")
+    p_lidar.add_argument("city")
+    p_lidar.add_argument("--force", action="store_true",
+                         help="re-download the rasters instead of using the cache")
+    p_lidar.set_defaults(func=cmd_lidar)
 
     p_bear = sub.add_parser("bearings", help="street orientation analysis")
     p_bear.add_argument("city")

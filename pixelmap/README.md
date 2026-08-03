@@ -6,7 +6,9 @@ second project.
 
 **Status:** Stages 0-2 and 5 are built — fetch, extract, schematize, and a
 painted renderer with pitched roofs, windowed facades, shopfronts, walled quays
-and raised bridge decks. Streets, banks and footprints are snapped onto the
+and raised bridge decks. Building heights are measured rather than assumed:
+open 2011 LiDAR gives 93% of footprints a height, and half of them turn out not
+to be the 2 storeys the pipeline used to assume. Streets, banks and footprints are snapped onto the
 eight directions that render as crisp isometric lines (70% of road length, up
 from 11%). Buildings are drawn at true isometric height with streets widened
 3.5 m per side instead. Framed with the Shannon low and west on the right,
@@ -37,6 +39,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | Command | What it does |
 |---|---|
 | `fetch` | Download OSM layers to `cities/<city>/cache/raw/` (cached; `--force` to refresh) |
+| `lidar` | Measure building heights from open LiDAR; writes `cache/lidar/heights.json.gz` and `analysis/heights.md` |
 | `bearings` | Street-orientation analysis; writes rose figures to `analysis/` |
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |
 | `greybox --study` | Six framing variants as a contact sheet |
@@ -61,7 +64,7 @@ The pipeline never branches on city name.
 
 ## Pipeline stages
 
-`fetch` → `extract` → `schematize` → `discretize` → `decorate` → `render` → `compose`
+`fetch` → `lidar` → `extract` → `schematize` → `discretize` → `decorate` → `render` → `compose`
 
 Stages 0–2 and 5 are built. `discretize` and `decorate` are not yet needed —
 the renderer draws from schematized vector geometry directly.
@@ -76,3 +79,8 @@ skips schematize to show true OSM geometry.
 ## Attribution
 
 Map data © OpenStreetMap contributors, ODbL. Any print carries this credit.
+
+Building heights derive from open LiDAR: Contains Irish Public Sector Data
+(Geological Survey Ireland & the Office of Public Works) licensed under a
+Creative Commons Attribution 4.0 International (CC BY 4.0) licence. CC-BY
+requires the credit, so any print carries this one too.

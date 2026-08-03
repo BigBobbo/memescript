@@ -4,6 +4,10 @@ cities/*/out/
 cities/*/cache/*.pickle
 cities/*/cache/*.log
 
+# Raw LiDAR rasters — 54 MB of GeoTIFF for Limerick alone, and re-downloadable
+# from the manifest inside heights.json.gz, which IS committed.
+cities/*/cache/lidar/tiles/
+
 # The repo root ignores *.png; gate evidence and analysis figures are the
 # record of each decision, so re-include them explicitly.
 !cities/*/gates/*.png
