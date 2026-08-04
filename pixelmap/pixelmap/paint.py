@@ -27,7 +27,7 @@ from shapely.ops import unary_union
 from .draw3d import metre_px as _metre_px
 from .draw3d import outward_normal_fn, rng as _rng, shade as _shade, wall_rect
 from .extract import Building, Layers, Road
-from .iso import CELL_W, Camera
+from .iso import CELL_W, STOREY_M, Camera
 from .landmarks import POINT_RECIPES, Model, masses_for, square
 from .props import draw_prop
 from .monuments import draw_landmark
@@ -161,6 +161,37 @@ def _infer_roof_shape(building: Building) -> str:
     return "gabled" if building.kind in _PITCHED_KINDS else "flat"
 
 
+def _roof_rise(camera: Camera, building: Building, span: float, *,
+               measured: bool) -> float:
+    """How far the ridge stands above the eaves, in pixels.
+
+    Two models. The default scales the pitch to the building's own width and
+    caps it, so a wide terrace gets a decent roof and nothing grows a cathedral
+    one. The alternative uses what the LiDAR actually read above the wall top.
+
+    The measured one is off by default because it was tried and looked worse —
+    see `gates/g14-roof-height-models.png`. At 2 m a ridge line is too thin to
+    land pixels on, so it reads low: across 17,932 pitched roofs the median
+    rise drops from 1.82 m to 0.88 m, 91% come out shallower, and 5% flatten
+    away entirely, leaving chimneys standing on slabs. It is the more honest
+    number and the worse picture. Kept as a flag so the comparison can be
+    re-run against better data — a 1 m survey of the city centre would change
+    the answer.
+    """
+    heuristic = min(span / camera.cell_m * 0.55, camera.storey_px * 1.35)
+    if not measured or building.ridge_m is None:
+        return heuristic
+
+    above_eaves_m = building.ridge_m - building.levels * STOREY_M
+    if above_eaves_m <= 0.1:
+        # The reading puts the highest return at or below the wall top, which
+        # describes a flat or parapet roof rather than a pitched one.
+        return 0.0
+    # Cap at the same ceiling the heuristic uses, so one bad reading on a
+    # church cannot put a spike through the frame.
+    return min(above_eaves_m * _metre_px(camera), camera.storey_px * 4.0)
+
+
 def _draw_roof(
     draw: ImageDraw.ImageDraw,
     camera: Camera,
@@ -170,6 +201,8 @@ def _draw_roof(
     seed: int,
     lift: float,
     top: list[tuple[float, float]],
+    *,
+    measured_ridges: bool = False,
 ) -> bool:
     """A pitched roof where the shape is known or safely inferable."""
     shape = (building.roof_shape or "").lower() or _infer_roof_shape(building)
@@ -204,9 +237,7 @@ def _draw_roof(
         e0, e1, e2, e3 = p[1], p[2], p[3], p[0]
         span = len_a
 
-    # Pitch scaled to the building's own width, capped so terraces do not grow
-    # cathedral roofs.
-    ridge_h = min(span / camera.cell_m * 0.55, camera.storey_px * 1.35)
+    ridge_h = _roof_rise(camera, building, span, measured=measured_ridges)
     if shape == "pyramidal":
         cx = sum(q[0] for q in p) / 4
         cy = sum(q[1] for q in p) / 4
@@ -434,6 +465,8 @@ def draw_building(
     style: Style,
     seed: int,
     stats: PaintStats,
+    *,
+    measured_ridges: bool = False,
 ) -> None:
     ring = list(building.geom.exterior.coords)
     if len(ring) < 4:
@@ -471,7 +504,8 @@ def draw_building(
             stats.shopfronts += int(shop)
 
     stats.roofs_tagged += int(_draw_roof(draw, camera, building, facade, style,
-                                         seed, lift, top))
+                                         seed, lift, top,
+                                         measured_ridges=measured_ridges))
     stats.buildings += 1
 
 
@@ -479,7 +513,8 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
            *, min_area_m2: float = 10.0,
            models: dict[str, Model] | None = None,
            superseded: set[str] | None = None,
-           props: list | None = None) -> tuple[Image.Image, PaintStats]:
+           props: list | None = None,
+           measured_ridges: bool = False) -> tuple[Image.Image, PaintStats]:
     """Paint the whole scene."""
     img = Image.new("RGB", (camera.width_px, camera.height_px), style.sky)
     draw = ImageDraw.Draw(img)
@@ -625,7 +660,8 @@ def render(layers: Layers, camera: Camera, style: Style, seed: int,
 
     for _, kind, item in sorted(queue, key=lambda t: t[0]):
         if kind == "building":
-            draw_building(draw, camera, item, style, seed, stats)
+            draw_building(draw, camera, item, style, seed, stats,
+                          measured_ridges=measured_ridges)
         elif kind == "prop":
             stats.props += int(draw_prop(draw, camera, item, style, seed))
         else:

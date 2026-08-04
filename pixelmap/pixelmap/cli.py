@@ -480,7 +480,8 @@ def cmd_frame(args) -> int:
         props = [] if args.bare else _decorate(city, layers)
         img, stats = paint_render(layers, camera, STYLES[args.style], city.seed,
                                   models=models, superseded=superseded,
-                                  props=props)
+                                  props=props,
+                                  measured_ridges=args.measured_ridges)
         drawn = stats.buildings
         print(f"  painted {stats.buildings} buildings · "
               f"{stats.roofs_tagged} pitched roofs · "
@@ -787,6 +788,9 @@ def main(argv: list[str] | None = None) -> int:
     p_frame.add_argument("--annotate", action="store_true")
     p_frame.add_argument("--bare", action="store_true",
                          help="skip the charm layer (no trees, boats or swans)")
+    p_frame.add_argument("--measured-ridges", action="store_true",
+                         help="take roof height from the LiDAR instead of the "
+                              "width-scaled pitch")
     p_frame.add_argument("--force", action="store_true", help="re-run extract")
     p_frame.set_defaults(func=cmd_frame)
 

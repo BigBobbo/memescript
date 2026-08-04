@@ -48,7 +48,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |
 | `greybox --study` | Six framing variants as a contact sheet |
 | `greybox --orientations` | All four quarter turns compared |
-| `frame` | Render the configured frame — the composition of record. `--scale` changes how much city is in shot, `--cell` how finely it is drawn (so speed), `--grey` for grey-box, `--raw` skips snapping, `--bare` drops the charm layer |
+| `frame` | Render the configured frame — the composition of record. `--scale` changes how much city is in shot, `--cell` how finely it is drawn (so speed), `--grey` for grey-box, `--raw` skips snapping, `--bare` drops the charm layer, `--measured-ridges` takes roof height from the LiDAR instead of the width-scaled pitch (looks flatter — see `gates/g14`) |
 | `frontages` | Rank facades by visible wall area; writes `facades.md` |
 | `site` | Cut the frame into a tile pyramid and emit the zoomable web viewer into `out/site/` |
 

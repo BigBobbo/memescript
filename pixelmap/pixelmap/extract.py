@@ -87,10 +87,10 @@ class Building:
     street: str | None = None
     #: Where `levels` came from: "tag", "lidar" or "default". Tags win over
     #: LiDAR — a surveyed storey count beats a 2 m raster inferring one.
-    #:
-    #: There is deliberately no measured roof height here. A 2 m raster cannot
-    #: see a ridge line: see `lidar.py`.
     levels_source: str = "default"
+    #: Metres from ground to the LiDAR's highest reading, where it managed one.
+    #: Off by default as a roof height — see `paint._roof_rise` and `lidar.py`.
+    ridge_m: float | None = None
 
 
 @dataclass
@@ -541,16 +541,20 @@ def apply_lidar_heights(layers: Layers, survey, *, storey_m: float = 3.2,
 
     tally = {"tag": 0, "lidar": 0, "default": 0}
     for building in layers.buildings:
+        measured = survey.heights.get(building.osm_id)
+        # Recorded whenever it was measured, even where a tag wins on storeys:
+        # the tag says how tall the walls are and nothing about the roof.
+        if measured is not None:
+            building.ridge_m = measured.ridge_m
+
         if building.levels_tagged:
             building.levels_source = "tag"
-        else:
-            measured = survey.heights.get(building.osm_id)
-            if measured is not None:
-                levels = max(1.0, min(max_levels, to_levels(measured)))
-                # Half a storey is the finest step 2 m data can justify, and it
-                # keeps a bungalow from rounding up into a two-storey house.
-                building.levels = round(levels * 2) / 2
-                building.levels_source = "lidar"
+        elif measured is not None:
+            levels = max(1.0, min(max_levels, to_levels(measured)))
+            # Half a storey is the finest step 2 m data can justify, and it
+            # keeps a bungalow from rounding up into a two-storey house.
+            building.levels = round(levels * 2) / 2
+            building.levels_source = "lidar"
         tally[building.levels_source] += 1
     return tally
 
