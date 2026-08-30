@@ -32,6 +32,24 @@ class TestMemeDatabase:
         assert result is not None
         assert result.name == "Drake Preference"
 
+    def test_add_replaces_existing_template(self):
+        db = MemeDatabase()
+        original = _make_template("Drake Preference", emotions=["frustration"])
+        db.add(original)
+        assert len(db.templates) == 1
+
+        updated = _make_template("Drake Preference", emotions=["joy"])
+        db.add(updated)
+        # Should replace, not duplicate
+        assert len(db.templates) == 1
+        assert db.get_by_name("Drake Preference").emotions == ["joy"]
+
+    def test_add_replaces_case_insensitive(self):
+        db = MemeDatabase()
+        db.add(_make_template("Drake Preference"))
+        db.add(_make_template("drake preference"))
+        assert len(db.templates) == 1
+
     def test_get_by_name_case_insensitive(self):
         db = MemeDatabase()
         db.add(_make_template("Drake Preference"))

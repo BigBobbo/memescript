@@ -27,8 +27,15 @@ class MemeDatabase:
         self._by_name = {t.name.lower(): t for t in self.templates}
 
     def add(self, template: MemeTemplate) -> None:
+        name_lower = template.name.lower()
+        # Replace existing template with the same name instead of duplicating
+        for i, existing in enumerate(self.templates):
+            if existing.name.lower() == name_lower:
+                self.templates[i] = template
+                self._by_name[name_lower] = template
+                return
         self.templates.append(template)
-        self._by_name[template.name.lower()] = template
+        self._by_name[name_lower] = template
 
     def get_by_name(self, name: str) -> Optional[MemeTemplate]:
         """Exact name lookup (case-insensitive)."""

@@ -201,6 +201,29 @@ class TestMakeGenericTemplate:
         template = _make_generic_template(suggestion)
         assert len(template.text_regions) == 4
 
+    def test_regions_do_not_overlap(self):
+        suggestion = _make_suggestion(
+            captions={"a": "1", "b": "2", "c": "3", "d": "4"}
+        )
+        template = _make_generic_template(suggestion)
+        regions = template.text_regions
+        # Each region should start after the previous one ends
+        for i in range(len(regions) - 1):
+            region_end = regions[i].y + regions[i].height
+            next_start = regions[i + 1].y
+            assert next_start >= region_end, (
+                f"Region {i} (y={regions[i].y}, h={regions[i].height}) "
+                f"overlaps with region {i+1} (y={next_start})"
+            )
+
+    def test_many_regions_do_not_stack(self):
+        captions = {f"r{i}": str(i) for i in range(6)}
+        suggestion = _make_suggestion(captions=captions)
+        template = _make_generic_template(suggestion)
+        y_positions = [r.y for r in template.text_regions]
+        # All y positions should be unique (no stacking)
+        assert len(set(y_positions)) == len(y_positions)
+
 
 class TestEstimateDuration:
     def test_short_captions(self):
