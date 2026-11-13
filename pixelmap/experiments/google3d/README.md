@@ -60,9 +60,10 @@ cd pixelmap && PYTHONPATH=. ../.venv/bin/python experiments/google3d/cartoon.py 
 
 Grey-world white balance and lifted shadows, then bilateral and mean-shift flattening, a 28-colour
 palette with boosted saturation, and ink lines from Canny with speckle removed. Also a 2 × 2
-pixel-block variant. Water is replaced by one flat fill. The mask is the OSM water registered via
-`camera_match.py`, grown by colour into the gaps between OSM polygons, with vegetation and
-bridge decks cut out. That fixes both the photo's water and the OSM over-fill at King's Island.
+pixel-block variant. Water is replaced by one flat fill. OSM water, registered via
+`camera_match.py`, says where to look, and low local texture decides: water is smooth, while
+woods, mudflats, roofs and foam are not. That keeps the King's Island woods OSM over-fills,
+and shows the tide-exposed banks and weir as sand.
 
 Limit: the textures carry baked sun and shadow, so a filter reads as a posterised photo, split
 into blue shade and orange sun, not as clean flat-coloured buildings. Outputs stay in `out/`.

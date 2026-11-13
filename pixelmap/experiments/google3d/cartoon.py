@@ -9,8 +9,9 @@ Needs opencv-python-headless and scikit-learn in the venv. Writes into OUTDIR:
     cartoon_*.jpg        previews and crop sheet
 
 Water: the photo water is patchy (tide, tint, glint), so it is replaced by a
-flat fill wherever OSM says water, registered through camera_match. Trees are
-left alone (OSM over-fills the Abbey River bank) and bridge decks are cut out.
+flat fill. OSM water, registered through camera_match, says where to look; low
+local texture decides, since water is smooth and the woods OSM over-fills at
+King's Island are not. Bridge decks are cut out.
 """
 
 from __future__ import annotations
@@ -77,20 +78,21 @@ bridges = [r.geom.buffer(r.width_m / 2 + 3, cap_style=2) for r in layers.roads i
 deck = np.zeros_like(water)
 for lift in range(0, 11, 2):                       # sweep the deck up through its pier height
     deck |= poly_mask(bridges, lift)
-hsv = cv2.cvtColor(src, cv2.COLOR_RGB2HSV).astype(int)
-green = (src[..., 1] > src[..., 0] + 6) & (src[..., 1] > src[..., 2]) & (hsv[..., 1] > 40)
-green = cv2.morphologyEx(green.astype(np.uint8), cv2.MORPH_OPEN, np.ones((5, 5), np.uint8)) > 0
-water &= ~deck & ~green
-core = cv2.erode(water.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
-lab = cv2.cvtColor(photo, cv2.COLOR_RGB2LAB).astype(np.float32)
-wk = MiniBatchKMeans(6, random_state=2157, n_init=3).fit(lab[core][::7])
-dist = np.min(np.linalg.norm(lab[..., None, :] - wk.cluster_centers_[None, None], axis=-1), axis=-1)
+# Water in the photo is smooth; woods, mudflats, roofs and foam are textured. OSM says
+# roughly where to look; texture decides. Colour alone cannot split water from woods.
+Lp = cv2.cvtColor(photo, cv2.COLOR_RGB2LAB)[..., 0].astype(np.float32)
+mu = cv2.blur(Lp, (15, 15))
+flat = np.sqrt(np.maximum(cv2.blur(Lp * Lp, (15, 15)) - mu * mu, 0)) < 6
 band = cv2.dilate(water.astype(np.uint8), np.ones((61, 61), np.uint8)) > 0
-grown = water | (band & (dist < 14) & ~deck & ~green)
-n, lbl = cv2.connectedComponents(grown.astype(np.uint8))
+core = cv2.erode((water & flat).astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
+cand = band & flat & ~deck
+n, lbl = cv2.connectedComponents(cand.astype(np.uint8))
 keep = np.zeros(n, bool); keep[np.unique(lbl[core])] = True; keep[0] = False
-water = keep[lbl]
-water = cv2.morphologyEx(water.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)) > 0
+water = cv2.morphologyEx(keep[lbl].astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)) > 0
+# Fill specks (boats, glints) but leave islands, the weir foam and the tidal banks.
+n, lbl, st, _ = cv2.connectedComponentsWithStats((~water).astype(np.uint8), connectivity=4)
+small = st[:, cv2.CC_STAT_AREA] < 3000
+water |= small[lbl] & (lbl > 0)
 water &= ~deck
 water = cv2.morphologyEx(water.astype(np.uint8), cv2.MORPH_OPEN, np.ones((5, 5), np.uint8)) > 0
 print(f"water {water.mean()*100:.1f}% of canvas, bridge decks {deck.mean()*100:.1f}%")
