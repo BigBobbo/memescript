@@ -21,39 +21,21 @@ silhouettes can be compared; `--native-height` uses ours.
 
 from __future__ import annotations
 
-import json
-import math
 import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw
-from pyproj import Transformer
 
-from pixelmap.cli import _extract_cached, _landmark_config
-from pixelmap.config import load_city
-from pixelmap.frame import true_storey_px
-from pixelmap.iso import STOREY_M, Camera
+sys.path.insert(0, str(Path(__file__).parent))
+from camera_match import matched_camera  # noqa: E402
+from pixelmap.cli import _extract_cached, _landmark_config  # noqa: E402
+from pixelmap.config import load_city  # noqa: E402
 
 out = Path(sys.argv[1])
-native_height = "--native-height" in sys.argv
-m = json.loads((out / "manifest.json").read_text())
-p, e = m["params"], m["extent"]
-W, H = m["crop"]["w"], m["crop"]["h"]
-mpp = p["mPerPx"]
-
 city = load_city("limerick")
-assert abs((city.rotation_deg - 45) % 360 - (p["bearing"] % 360)) < 1e-6, \
-    "Google bearing must equal rotation - 45"
-
-cell = mpp * 2 * math.sqrt(2)
-storey = (true_storey_px(cell) if native_height
-          else STOREY_M * math.cos(math.radians(p["elev"])) / mpp)
-ox, oy = Transformer.from_crs("EPSG:4326", city.crs, always_xy=True).transform(p["lon"], p["lat"])
-# Google's target point sits at screen (0, 0) in metres: x = -left, y = top.
-target_px = (-e["left"] / mpp, e["top"] / mpp)
-camera = Camera(origin_x=ox, origin_y=oy, rotation_deg=city.rotation_deg, cell_m=cell,
-                width_px=W, height_px=H, storey_px=storey,
-                centre_shift_px=(target_px[0] - W / 2, target_px[1] - H / 2))
+camera, m = matched_camera(out, city, native_height="--native-height" in sys.argv)
+W, H = camera.width_px, camera.height_px
+cell, storey = camera.cell_m, camera.storey_px
 print(f"cell {cell:.4f} m · storey {storey:.2f} px · canvas {W}x{H}")
 
 layers = _extract_cached(city)

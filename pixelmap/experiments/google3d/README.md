@@ -50,3 +50,19 @@ so `iso.py`'s rotation, 2:1 and origin agree with a true ortho camera at bearing
 | Thomond Bridge | Seven arches, parapets | Flat slab | Arches in the bridge model |
 | Castle | — | Modelled castle lines up with the real one | — |
 | Trees | Dense along the river and in gardens | None | Already next on the plan |
+
+## Cartoon pass (local only)
+
+```bash
+uv pip install --python ../../../.venv/bin/python opencv-python-headless scikit-learn
+cd pixelmap && PYTHONPATH=. ../.venv/bin/python experiments/google3d/cartoon.py experiments/google3d/out
+```
+
+Grey-world white balance and lifted shadows, then bilateral and mean-shift flattening, a 28-colour
+palette with boosted saturation, and ink lines from Canny with speckle removed. Also a 2 × 2
+pixel-block variant. Water is replaced by one flat fill. The mask is the OSM water registered via
+`camera_match.py`, grown by colour into the gaps between OSM polygons, with vegetation and
+bridge decks cut out. That fixes both the photo's water and the OSM over-fill at King's Island.
+
+Limit: the textures carry baked sun and shadow, so a filter reads as a posterised photo, split
+into blue shade and orange sun, not as clean flat-coloured buildings. Outputs stay in `out/`.
