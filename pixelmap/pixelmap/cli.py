@@ -17,6 +17,26 @@ from .config import City, load_city
 
 
 def _extract_cached(city: City, *, force: bool = False):
+    """Extract layers, with lidar heights applied when the city enables them."""
+    layers = _extract_layers(city, force=force)
+    heights = city.config.get("heights", {})
+    if heights.get("lidar"):
+        from . import lidar
+
+        raster = lidar.ndsm(city)
+        if raster is None:
+            print("  heights: no lidar tiles cached — run `pixelmap lidar` "
+                  f"{city.slug}; using OSM tags and the default")
+        else:
+            layers, st = lidar.apply(layers, city, raster,
+                                     percentile=float(heights.get("percentile", 60)),
+                                     inset_m=float(heights.get("inset_m", 1.0)))
+            print(f"  heights: lidar for {st.replaced} buildings, OSM tags for "
+                  f"{st.tagged_kept}, default for {st.kept_default} (no 2011 roof)")
+    return layers
+
+
+def _extract_layers(city: City, *, force: bool = False):
     """Extract layers, caching the projected result between runs."""
     from .extract import extract
 
@@ -43,6 +63,20 @@ def cmd_fetch(args) -> int:
     city = load_city(args.city)
     print(f"fetch: {city.config['city']['name']}  bbox={city.bbox}")
     fetch_city(city.config, city.cache, force=args.force)
+    return 0
+
+
+def cmd_lidar(args) -> int:
+    """Download the lidar tiles covering the fetch bbox."""
+    from . import lidar
+
+    city = load_city(args.city)
+    lidar.fetch(city, force=args.force)
+    if args.calibrate:
+        layers = _extract_layers(city)
+        print("percentile  mean |err| (storeys)  bias  n   — against OSM-tagged storeys")
+        for p, mae, bias, n in lidar.calibrate(layers, lidar.ndsm(city)):
+            print(f"  p{p:<3}      {mae:.2f}               {bias:+.2f}  {n}")
     return 0
 
 
@@ -417,6 +451,13 @@ def main(argv: list[str] | None = None) -> int:
     p_fetch.add_argument("city")
     p_fetch.add_argument("--force", action="store_true", help="re-fetch cached layers")
     p_fetch.set_defaults(func=cmd_fetch)
+
+    p_lidar = sub.add_parser("lidar", help="download OPW lidar tiles for building heights")
+    p_lidar.add_argument("city")
+    p_lidar.add_argument("--force", action="store_true", help="re-download tiles")
+    p_lidar.add_argument("--calibrate", action="store_true",
+                         help="score height percentiles against OSM-tagged storeys")
+    p_lidar.set_defaults(func=cmd_lidar)
 
     p_bear = sub.add_parser("bearings", help="street orientation analysis")
     p_bear.add_argument("city")

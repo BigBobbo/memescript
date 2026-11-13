@@ -8,3 +8,5 @@ cities/*/cache/*.log
 # record of each decision, so re-include them explicitly.
 !cities/*/gates/*.png
 !cities/*/analysis/*.png
+# OPW lidar tiles (~70 MB), re-downloaded by `pixelmap lidar`.
+cities/*/cache/lidar/

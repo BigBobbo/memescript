@@ -45,7 +45,7 @@ so `iso.py`'s rotation, 2:1 and origin agree with a true ortho camera at bearing
 |---|---|---|---|
 | Abbey River / King's Island | Narrow channel, wooded bank | Water fills the wooded bank too, in raw *and* painted | Water regions from `extract` over-fill; check coastline region assembly there |
 | Shannon banks | Irregular, mudflats | Matches the OSM bank; `water_simplify_m = 45` smooths it acceptably | — |
-| Georgian core heights | Mostly 3–5 storeys | Mostly 2: within 300 m of O'Connell St, 629 of 714 buildings are untagged and fall to `default_levels = 2` (tagged median 3) | Per-area default, e.g. 4 inside the Newtown Pery grid |
+| Georgian core heights | Mostly 3–5 storeys | Mostly 2: within 300 m of O'Connell St, 629 of 714 buildings are untagged and fall to `default_levels = 2` (tagged median 3) | **Done:** lidar heights (`pixelmap lidar`), core median now 3 with 4–5 common |
 | Street width | Narrow, continuous terraces | Visibly wide, gaps between rows (`street_widen_m = 3.5`) | Expected trade-off; Google shows how far it departs |
 | Thomond Bridge | Seven arches, parapets | Flat slab | Arches in the bridge model |
 | Castle | — | Modelled castle lines up with the real one | — |

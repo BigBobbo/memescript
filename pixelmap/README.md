@@ -37,6 +37,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 | Command | What it does |
 |---|---|
 | `fetch` | Download OSM layers to `cities/<city>/cache/raw/` (cached; `--force` to refresh) |
+| `lidar` | Download OPW lidar tiles to `cities/<city>/cache/lidar/` for building heights; `--calibrate` scores the height percentile against OSM-tagged storeys |
 | `bearings` | Street-orientation analysis; writes rose figures to `analysis/` |
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |
 | `greybox --study` | Six framing variants as a contact sheet |
@@ -56,6 +57,7 @@ Everything Limerick-specific is data under `cities/limerick/`:
 | `city.toml` | bbox, CRS, rotation, cell size, frame extents, print size, seed |
 | `landmarks.toml` | `[[landmark]]` anchors for framing checks; `[[model]]` recipes, heights and materials for the named buildings |
 | `cache/raw/` | the committed OSM snapshot, so a print stays reproducible |
+| `cache/lidar/` | OPW lidar DSM/DTM tiles (about 70 MB, not committed; `pixelmap lidar` re-downloads them) |
 
 The pipeline never branches on city name.
 
@@ -76,3 +78,16 @@ skips schematize to show true OSM geometry.
 ## Attribution
 
 Map data © OpenStreetMap contributors, ODbL. Any print carries this credit.
+
+Building heights: Contains Irish Public Sector Data (Geological Survey Ireland & the Office
+of Public Works) licensed under a Creative Commons Attribution 4.0 International (CC BY 4.0)
+licence. Required on any print while `[heights] lidar = true`.
+
+## Heights
+
+OSM tags storeys on 18% of buildings. The rest take their height from OPW's 2011 2 m lidar:
+surface minus terrain inside each footprint, pulled in 1 m from the walls, at the 60th
+percentile of the roof returns. Against the 3,871 tagged buildings that gives a mean error of
+0.20 storeys with no bias. In the Georgian core the median goes from the default 2 storeys to 3,
+with 4–5 common, which matches the Google 3D Tiles comparison in `experiments/google3d/`.
+Tags still win. A footprint with no roof returns, usually built after 2011, keeps the default.

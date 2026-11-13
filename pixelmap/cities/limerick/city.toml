@@ -76,6 +76,17 @@ dpi       = 300
 height_exaggeration = 1.0
 default_levels = 2             # empirical Limerick default (83% of tagged = 2)
 
+[heights]
+# Storeys for buildings OSM leaves untagged (82% of them), from OPW 2011 lidar:
+# surface minus terrain inside each footprint, pulled in 1 m from the walls.
+# `pixelmap lidar limerick --calibrate` scores the percentile against the 3,871
+# tagged buildings: p60 gives a mean error of 0.20 storeys and no bias, 99% of
+# tagged 2-storey buildings within one storey. Tags still win; a footprint with
+# no roof returns (built after 2011) keeps `default_levels`.
+lidar      = true
+percentile = 60
+inset_m    = 1.0
+
 [frame]
 # The ground rectangle in shot, so detail level and coverage stay independent.
 # Shows the Shannon along the bottom with King John's Castle and King's Island
