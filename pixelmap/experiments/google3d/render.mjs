@@ -21,7 +21,7 @@ const P = {
   lat: Number(process.env.LAT ?? 52.6678),      // King John's Castle, Thomond Bridge, the Shannon
   lon: Number(process.env.LON ?? -8.6255),
   bearing: Number(process.env.BEARING ?? 167.75),
-  elev: 30,
+  elev: Number(process.env.ELEV ?? 30),          // 45 matches isometric-nyc's training renders
   across: Number(process.env.ACROSS ?? 1000),   // metres
   deep: Number(process.env.DEEP ?? 1000),
   headroom: 95,                                 // St John's spire is 90 m

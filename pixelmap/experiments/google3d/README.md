@@ -13,7 +13,7 @@ GOOGLE_MAPS_API_KEY=... node render.mjs out   # Map Tiles API must be enabled on
 python3 stitch.py out                          # -> out/limerick_iso_full.png, _preview.jpg
 ```
 
-Env overrides: `LAT`, `LON`, `ACROSS`, `DEEP` (m), `M_PER_PX` (default 0.25),
+Env overrides: `LAT`, `LON`, `ACROSS`, `DEEP` (m), `ELEV` (default 30; 45 matches isometric-nyc), `M_PER_PX` (default 0.25),
 `ERROR_TARGET` (default 4; lower = more detail, slower), `BEARING`.
 
 ## Comparing against our pipeline
