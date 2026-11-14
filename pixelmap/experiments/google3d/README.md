@@ -72,7 +72,7 @@ into blue shade and orange sun, not as clean flat-coloured buildings. Outputs st
 
 Restyles 45° renders with Andy Coenen's isometric-nyc LoRA (`cannoneyed-dark-copper-flea`,
 public on Oxen; the code is MIT-licensed, while the weights and data state no licence) on
-`fal-ai/qwen-image-edit-2509-lora`.
+`fal-ai/qwen-image-edit-2511/lora`. The 2509 endpoint was returning 500s, Nov 2026.
 
 ```bash
 uv pip install --python ../../../.venv/bin/python fal-client
@@ -86,3 +86,10 @@ commit it. Each 1024 px tile is a paid call, about $0.037. The input format foll
 author's masked-infill training data: the raw render goes inside a 2 px red border, with his
 prompt. Each request ID is saved next to its tile, so a failed fetch never needs a second,
 billed submit.
+
+First run (6 tiles, 2511 + LoRA scale 1, 14 steps, cfg 2; about $0.22, 23–52 s a tile): the style
+transfers and buildings stay recognisable, with trees as cartoon clumps and flat-shaded roofs.
+Strength varies a lot between tiles, from heavy SimCity-like to nearly photo, and seams show
+because each tile is generated alone. Water still comes out as photo brown, or as invented
+pastel shapes. Next: tune the LoRA scale and steps, chain tiles with the author's infill
+(neighbours as context), and paint water from the OSM mask.

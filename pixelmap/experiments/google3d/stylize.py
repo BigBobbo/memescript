@@ -7,9 +7,9 @@ Needs `fal-client` in the venv and FAL_KEY in the environment or in ./.env
 (gitignored; never commit it). Each tile is a paid request: about $0.037 for a
 1024 x 1024 tile at $0.035 per megapixel.
 
-Model: fal-ai/qwen-image-edit-2509-lora with Andy Coenen's LoRA
+Model: fal-ai/qwen-image-edit-2511/lora with Andy Coenen's LoRA
 `cannoneyed-dark-copper-flea` (isometric-nyc, trained on the original
-Qwen-Image-Edit; 2509 shares its architecture). Input format follows his
+Qwen-Image-Edit; 2511 shares its architecture). Input format follows his
 masked-infill training data: the region to paint carries the raw render inside
 a 2 px red border, and the prompt asks for it to be filled in his style. A tile
 with no painted neighbours is all render with the border at its edge.
@@ -31,7 +31,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 HERE = Path(__file__).resolve().parent
-ENDPOINT = "fal-ai/qwen-image-edit-2509-lora"
+ENDPOINT = "fal-ai/qwen-image-edit-2511/lora"  # 2509-lora returned 500s for every request, Nov 2026
 LORA = ("https://hub.oxen.ai/api/repos/cannoneyed/isometric-nyc-v02/file/"
         "55b9eaff9e93ceae2549c85ba2f10b4f/models/cannoneyed-dark-copper-flea/model.safetensors")
 PROMPT = ("Fill in the outlined section with the missing pixels corresponding to the "
