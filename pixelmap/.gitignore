@@ -10,3 +10,6 @@ cities/*/cache/*.log
 !cities/*/analysis/*.png
 # OPW lidar tiles (~70 MB), re-downloaded by `pixelmap lidar`.
 cities/*/cache/lidar/
+
+# Mockup city: OSM data and renders are throwaway.
+cities/limerick-wide/cache/
