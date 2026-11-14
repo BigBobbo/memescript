@@ -70,6 +70,9 @@ def main() -> int:
     ap.add_argument("--tiles", nargs="+", default=["0,0"], help="row,col of 1024 px tiles")
     ap.add_argument("--steps", type=int, default=14, help="author's server default")
     ap.add_argument("--cfg", type=float, default=2.0, help="author's true_cfg_scale default")
+    ap.add_argument("--lora", default=LORA,
+                    help="LoRA URL; fal may fail to pull the Oxen copy, so a fal-storage "
+                         "re-upload of the same file also works")
     ap.add_argument("--lora-scale", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=2157)
     ap.add_argument("--force", action="store_true", help="re-run tiles that already have output")
@@ -103,7 +106,7 @@ def main() -> int:
         arguments = {
             "prompt": PROMPT,
             "image_urls": [image_url],
-            "loras": [{"path": LORA, "scale": args.lora_scale}],
+            "loras": [{"path": args.lora, "scale": args.lora_scale}],
             "num_inference_steps": args.steps,
             "guidance_scale": args.cfg,
             "seed": args.seed,
