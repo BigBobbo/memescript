@@ -36,7 +36,7 @@ PYTHONPATH=. ../.venv/bin/python -m pixelmap.cli <command> limerick
 
 | Command | What it does |
 |---|---|
-| `fetch` | Download OSM layers to `cities/<city>/cache/raw/` (cached; `--force` to refresh) |
+| `fetch` | Download OSM layers to `cities/<city>/cache/raw/` (cached; `--force` to refresh). `--pbf FILE` builds the same cache from a local `.osm.pbf` extract (e.g. openstreetmap.fr's `ireland.osm.pbf`) when Overpass is down or refuses the connection; needs `osmium` |
 | `lidar` | Download OPW lidar tiles to `cities/<city>/cache/lidar/` for building heights; `--calibrate` scores the height percentile against OSM-tagged storeys |
 | `bearings` | Street-orientation analysis; writes rose figures to `analysis/` |
 | `greybox --fit` | Render the locked frame, plus a landmark-annotated copy |

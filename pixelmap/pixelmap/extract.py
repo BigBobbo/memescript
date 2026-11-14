@@ -323,7 +323,11 @@ def extract(raw_dir: Path, crs: str, *, bbox=None, log=print) -> Layers:
     for element in _load(raw_dir / "water.json"):
         tags = element.get("tags", {})
         kind = tags.get("natural") or tags.get("waterway") or "water"
-        polys = _polygons_from_element(element)
+        # A river, stream or canal way is a centreline, not an outline. Closing
+        # it like an unclosed area turns every bend into a wedge of "lake".
+        linear = (element["type"] == "way" and tags.get("area") != "yes"
+                  and tags.get("waterway") in ("river", "stream", "canal", "drain", "ditch"))
+        polys = [] if linear else _polygons_from_element(element)
         if polys:
             for poly in polys:
                 layers.water.append(

@@ -62,7 +62,12 @@ def cmd_fetch(args) -> int:
 
     city = load_city(args.city)
     print(f"fetch: {city.config['city']['name']}  bbox={city.bbox}")
-    fetch_city(city.config, city.cache, force=args.force)
+    if args.pbf:
+        from .fetch_pbf import fetch_from_pbf
+
+        fetch_from_pbf(city.config, city.cache, Path(args.pbf))
+    else:
+        fetch_city(city.config, city.cache, force=args.force)
     return 0
 
 
@@ -450,6 +455,9 @@ def main(argv: list[str] | None = None) -> int:
     p_fetch = sub.add_parser("fetch", help="download raw OSM layers")
     p_fetch.add_argument("city")
     p_fetch.add_argument("--force", action="store_true", help="re-fetch cached layers")
+    p_fetch.add_argument("--pbf", default=None,
+                         help="build the layer cache from a local .osm.pbf extract instead of "
+                              "Overpass (overwrites cached layers)")
     p_fetch.set_defaults(func=cmd_fetch)
 
     p_lidar = sub.add_parser("lidar", help="download OPW lidar tiles for building heights")
