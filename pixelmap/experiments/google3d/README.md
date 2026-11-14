@@ -67,3 +67,22 @@ and shows the tide-exposed banks and weir as sand.
 
 Limit: the textures carry baked sun and shadow, so a filter reads as a posterised photo, split
 into blue shade and orange sun, not as clean flat-coloured buildings. Outputs stay in `out/`.
+
+## isometric-nyc style via fal.ai
+
+Restyles 45° renders with Andy Coenen's isometric-nyc LoRA (`cannoneyed-dark-copper-flea`,
+public on Oxen; the code is MIT-licensed, while the weights and data state no licence) on
+`fal-ai/qwen-image-edit-2509-lora`.
+
+```bash
+uv pip install --python ../../../.venv/bin/python fal-client
+LAT=52.6655 LON=-8.6275 ACROSS=900 DEEP=900 ELEV=45 M_PER_PX=0.293 node render.mjs out_nyc45
+python3 stitch.py out_nyc45
+../../../.venv/bin/python stylize.py out_nyc45 --tiles 0,0 0,1 0,2 1,0 1,1 1,2
+```
+
+`FAL_KEY` comes from the environment or `./.env`, which is gitignored and mode 600; never
+commit it. Each 1024 px tile is a paid call, about $0.037. The input format follows the
+author's masked-infill training data: the raw render goes inside a 2 px red border, with his
+prompt. Each request ID is saved next to its tile, so a failed fetch never needs a second,
+billed submit.
